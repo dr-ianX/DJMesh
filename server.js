@@ -785,7 +785,8 @@ const wss = new WebSocket.Server({ server });
 // Almacenamiento en memoria
 const state = {
     posts: [],
-    activeUsers: new Set()
+    activeUsers: new Set(),
+    onlineUsers: new Set() // 🆕 Para contador de usuarios online
 };
 
 // 🆕 CARGAR POSTS PERSISTENTES AL INICIAR - MEJORADO
@@ -1087,13 +1088,24 @@ async function handleMessage(socket, data) {
 // Manejar conexiones WebSocket
 wss.on('connection', (socket, req) => {
     console.log('👤 Nueva conexión WebSocket');
-    
+
+    // 🆕 AGREGAR USUARIO A CONECTADOS
+    state.onlineUsers.add(socket);
+    console.log(`👥 Usuarios online: ${state.onlineUsers.size}`);
+
+    // 🆕 BROADCAST CONTADOR DE USUARIOS ONLINE
+    broadcast({
+        type: 'online_users_count',
+        count: state.onlineUsers.size
+    });
+
     // Enviar estado actual
     socket.send(JSON.stringify({
         type: 'welcome',
         message: 'Bienvenido a DJMesh 🌟',
         posts: state.posts.slice(0, 200),
-        dailyPlaylist: dailyPlaylist.getDailyPlaylist() // 🆕 Solo enviar playlist, NO control de reproducción
+        dailyPlaylist: dailyPlaylist.getDailyPlaylist(), // 🆕 Solo enviar playlist, NO control de reproducción
+        onlineUsers: state.onlineUsers.size // 🆕 Enviar contador inicial
     }));
 
     socket.on('message', async (message) => {
@@ -1111,6 +1123,15 @@ wss.on('connection', (socket, req) => {
 
     socket.on('close', () => {
         console.log('👋 Usuario desconectado');
+        // 🆕 REMOVER USUARIO DE CONECTADOS
+        state.onlineUsers.delete(socket);
+        console.log(`👥 Usuarios online: ${state.onlineUsers.size}`);
+
+        // 🆕 BROADCAST CONTADOR ACTUALIZADO
+        broadcast({
+            type: 'online_users_count',
+            count: state.onlineUsers.size
+        });
     });
 
     socket.on('error', (error) => {

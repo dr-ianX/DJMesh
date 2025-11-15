@@ -21,6 +21,7 @@ class DJMeshClient {
         this.startVisualDecay();
         this.createDJFeatures();
         this.createDynamicBackground();
+        this.createOnlineCounter(); // 🆕 Contador de usuarios online
         // 🎯 INICIALIZAR MUSIC PLAYER CON RETRASO PARA MÓVILES
         setTimeout(() => {
             this.musicPlayer.init();
@@ -188,6 +189,39 @@ class DJMeshClient {
         }
     }
 
+    // 🆕 CREAR CONTADOR DE USUARIOS ONLINE
+    createOnlineCounter() {
+        if (document.getElementById('onlineCounter')) return;
+
+        const counter = document.createElement('div');
+        counter.id = 'onlineCounter';
+        counter.className = 'online-counter';
+        counter.innerHTML = `
+            <span class="online-icon">👥</span>
+            <span class="online-count">0</span>
+            <span class="online-label">online</span>
+        `;
+        document.body.appendChild(counter);
+
+        console.log('👥 Contador de usuarios online creado');
+    }
+
+    // 🆕 ACTUALIZAR CONTADOR DE USUARIOS ONLINE
+    updateOnlineCounter(count) {
+        const counterEl = document.getElementById('onlineCounter');
+        if (counterEl) {
+            const countEl = counterEl.querySelector('.online-count');
+            if (countEl) {
+                countEl.textContent = count;
+                // 🎯 Animación sutil cuando cambia
+                countEl.style.animation = 'pulse 0.3s ease-in-out';
+                setTimeout(() => {
+                    countEl.style.animation = '';
+                }, 300);
+            }
+        }
+    }
+
     openDJModal(postType) {
         const configs = {
             mix: {
@@ -334,19 +368,23 @@ class DJMeshClient {
                     console.log('🎵 Recibiendo playlist del servidor:', data.dailyPlaylist.length, 'canciones');
                     this.musicPlayer.syncPlaylist(data.dailyPlaylist);
                 }
+                // 🆕 Actualizar contador de usuarios online
+                if (data.onlineUsers !== undefined) {
+                    this.updateOnlineCounter(data.onlineUsers);
+                }
                 this.renderGrid();
                 break;
-                
+
             case 'new_post':
                 this.posts.unshift(data.post);
                 this.renderGrid();
                 this.highlightNewPost(data.post.id);
                 break;
-                
+
             case 'comment_added':
                 this.handleNewComment(data);
                 break;
-                
+
             case 'error':
                 alert(`Error: ${data.message}`);
                 break;
@@ -367,6 +405,11 @@ class DJMeshClient {
                     }
                 });
                 this.renderGrid();
+                break;
+
+            // 🆕 Actualización del contador de usuarios online
+            case 'online_users_count':
+                this.updateOnlineCounter(data.count);
                 break;
         }
     }
