@@ -28,6 +28,11 @@
         <span class="plus-icon">+</span>
     </button>
 
+    <!-- Botón flotante para inbox -->
+    <button class="floating-inbox-btn" id="inboxBtn" title="Mensajes privados">
+        <span class="inbox-icon">📬</span>
+    </button>
+
     <!-- Modal para comentarios -->
     <div class="modal" id="commentModal">
         <div class="modal-content">
@@ -58,6 +63,29 @@
             <p>Elige tu nickname de por vida:</p>
             <input type="text" class="nickname-input" id="nicknameInput" placeholder="Ej: CyberExplorer_92" maxlength="20">
             <button class="comment-btn" id="saveNickname">Entrar a DJMesh</button>
+        </div>
+    </div>
+
+    <!-- Modal para inbox -->
+    <div class="modal" id="inboxModal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeInboxBtn">&times;</span>
+            <h3>📬 Mensajes Privados</h3>
+            <div class="inbox-tabs">
+                <button class="inbox-tab active" data-tab="inbox">Recibidos</button>
+                <button class="inbox-tab" data-tab="compose">Enviar</button>
+            </div>
+            <div class="inbox-content">
+                <div class="inbox-messages" id="inboxMessages">
+                    <div class="loading">Cargando mensajes...</div>
+                </div>
+                <div class="compose-message" id="composeMessage" style="display: none;">
+                    <input type="text" class="recipient-input" id="recipientInput" placeholder="Destinatario" maxlength="20">
+                    <input type="text" class="subject-input" id="subjectInput" placeholder="Asunto" maxlength="50">
+                    <textarea class="message-input" id="messageInput" placeholder="Escribe tu mensaje..." maxlength="500" rows="4"></textarea>
+                    <button class="comment-btn" id="sendMessageBtn">Enviar Mensaje</button>
+                </div>
+            </div>
         </div>
     </div>
 

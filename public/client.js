@@ -49,7 +49,7 @@ class DJMeshClient {
     
     setupEventListeners() {
         console.log('📝 Configurando eventos...');
-        
+
         // Nickname
         document.getElementById('saveNickname').addEventListener('click', () => this.saveUserNickname());
         document.getElementById('nicknameInput').addEventListener('keypress', (e) => {
@@ -61,11 +61,11 @@ class DJMeshClient {
         document.getElementById('commentInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.addComment();
         });
-        
+
         // Cerrar modales
         document.getElementById('closeModal').addEventListener('click', () => this.closeCommentModal());
         document.getElementById('closePublishBtn').addEventListener('click', () => this.closePublishModal());
-        
+
         // Publicar
         document.getElementById('publishBtn').addEventListener('click', () => this.openPublishModal());
         document.getElementById('submitPublish').addEventListener('click', () => this.createNewPost());
@@ -74,15 +74,30 @@ class DJMeshClient {
                 this.createNewPost();
             }
         });
-        
+
         // Cerrar modales al hacer click fuera
         document.getElementById('commentModal').addEventListener('click', (e) => {
             if (e.target === document.getElementById('commentModal')) this.closeCommentModal();
         });
-        
+
         document.getElementById('publishModal').addEventListener('click', (e) => {
             if (e.target === document.getElementById('publishModal')) this.closePublishModal();
         });
+
+        // Inbox
+        document.getElementById('inboxBtn').addEventListener('click', () => this.openInboxModal());
+        document.getElementById('closeInboxBtn').addEventListener('click', () => this.closeInboxModal());
+        document.getElementById('inboxModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('inboxModal')) this.closeInboxModal();
+        });
+
+        // Tabs de inbox
+        document.querySelectorAll('.inbox-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => this.switchInboxTab(e.target.getAttribute('data-tab')));
+        });
+
+        // Enviar mensaje
+        document.getElementById('sendMessageBtn').addEventListener('click', () => this.sendMessage());
 
         // Reorganizar grid en resize
         window.addEventListener('resize', () => {
@@ -477,8 +492,8 @@ class DJMeshClient {
             return;
         }
 
-        fetch(`/resolve-post/${postId}`, { 
-            method: 'POST' 
+        fetch(`/resolve-post/${postId}`, {
+            method: 'POST'
         })
         .then(response => {
             if (response.ok) {
@@ -491,6 +506,77 @@ class DJMeshClient {
             console.error('Error:', error);
             alert('Error de conexión');
         });
+    }
+
+    // 🆕 ABRIR MODAL DE INBOX
+    openInboxModal() {
+        document.getElementById('inboxModal').style.display = 'flex';
+        this.loadMessages();
+    }
+
+    // 🆕 CERRAR MODAL DE INBOX
+    closeInboxModal() {
+        document.getElementById('inboxModal').style.display = 'none';
+        // Limpiar contenido
+        document.getElementById('inboxMessages').innerHTML = '';
+        document.getElementById('composeMessage').style.display = 'none';
+        document.getElementById('inboxMessages').style.display = 'block';
+    }
+
+    // 🆕 CAMBIAR ENTRE TABS DE INBOX
+    switchInboxTab(tab) {
+        // Actualizar tabs
+        document.querySelectorAll('.inbox-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+        // Mostrar contenido correspondiente
+        if (tab === 'inbox') {
+            document.getElementById('inboxMessages').style.display = 'block';
+            document.getElementById('composeMessage').style.display = 'none';
+            this.loadMessages();
+        } else {
+            document.getElementById('inboxMessages').style.display = 'none';
+            document.getElementById('composeMessage').style.display = 'block';
+        }
+    }
+
+    // 🆕 CARGAR MENSAJES
+    loadMessages() {
+        if (this.socket?.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'get_messages',
+                user: this.currentUser
+            }));
+        }
+    }
+
+    // 🆕 ENVIAR MENSAJE
+    sendMessage() {
+        const recipient = document.getElementById('recipientInput').value.trim();
+        const subject = document.getElementById('subjectInput').value.trim();
+        const content = document.getElementById('messageInput').value.trim();
+
+        if (!recipient || !subject || !content) {
+            alert('Completa todos los campos');
+            return;
+        }
+
+        if (this.socket?.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'send_message',
+                from: this.currentUser,
+                to: recipient,
+                subject: subject,
+                content: content
+            }));
+
+            // Limpiar formulario
+            document.getElementById('recipientInput').value = '';
+            document.getElementById('subjectInput').value = '';
+            document.getElementById('messageInput').value = '';
+
+            alert('Mensaje enviado!');
+        }
     }
 
     // 🎵 Calcular tamaño inteligente
