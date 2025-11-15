@@ -379,7 +379,7 @@ class DJMeshClient {
         if (this.posts.length === 0) {
             gridContainer.innerHTML = `
                 <div class="loading">
-                    <h3>¡Bienvenido al DJMesh de Los Cabos! 🌟</h3>
+                    <h3>¡Bienvenido a DJMesh! 🎵</h3>
                     <p>Sé el primero en publicar haciendo doble click en cualquier lugar</p>
                     <p>O usa el botón naranja en la esquina inferior derecha</p>
                 </div>
