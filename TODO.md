@@ -9,7 +9,7 @@
 - [x] Update public/index.html: Change title to "DJMesh", update welcome messages and descriptions
 - [x] Update public/styles.css: Replace composer badges with DJ-specific ones
 - [x] Update public/client.js: Transform composer tools to DJ tools, enhance MusicPlayer
-- [ ] Add inbox functionality: Implement inbox system with Google Sheets persistence for private messages
+- [x] Add inbox functionality: Implement inbox system with Google Sheets persistence for private messages
 
 ## Followup Steps
 - [ ] Test WebSocket connections and real-time functionality

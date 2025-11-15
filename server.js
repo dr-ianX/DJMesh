@@ -286,6 +286,218 @@ class PostsPersistence {
 }
 
 // ============================================================================
+// 📬 CLASE INBOX SYSTEM - NUEVA FUNCIONALIDAD
+// ============================================================================
+class InboxSystem {
+    constructor() {
+        this.doc = null;
+        this.sheet = null;
+        this.initialized = false;
+        this.retryCount = 0;
+        this.maxRetries = 3;
+    }
+
+    async init() {
+        try {
+            // Usar variables de entorno para inbox (podrían ser las mismas o diferentes)
+            if (!process.env.GOOGLE_SERVICE_EMAIL_2 || !process.env.GOOGLE_PRIVATE_KEY_2 || !process.env.SHEET_ID_2) {
+                console.log('⚠️  Google Sheets para inbox no configurado - usando solo memoria');
+                return;
+            }
+
+            console.log('🔍 Inicializando Google Sheets para inbox...');
+            this.doc = new GoogleSpreadsheet(process.env.SHEET_ID_2);
+
+            await this.doc.useServiceAccountAuth({
+                client_email: process.env.GOOGLE_SERVICE_EMAIL_2,
+                private_key: process.env.GOOGLE_PRIVATE_KEY_2.replace(/\\n/g, '\n'),
+            });
+
+            await this.doc.loadInfo();
+
+            // Intentar usar segunda hoja para inbox, o crear nueva
+            try {
+                this.sheet = this.doc.sheetsByIndex[1]; // Segunda hoja para inbox
+                console.log(`📄 Usando hoja inbox existente: ${this.sheet.title}`);
+            } catch (error) {
+                console.log('📄 Creando nueva hoja para inbox...');
+                this.sheet = await this.doc.addSheet({
+                    title: 'Inbox Messages',
+                    headerValues: ['id', 'from', 'to', 'subject', 'content', 'timestamp', 'read', 'expiresAt']
+                });
+            }
+
+            this.initialized = true;
+            console.log('✅ Google Sheets conectado para inbox');
+        } catch (error) {
+            console.error('❌ Error inicializando Google Sheets para inbox:', error.message);
+            this.retryCount++;
+
+            if (this.retryCount <= this.maxRetries) {
+                console.log(`🔄 Reintentando inbox en 5 segundos... (${this.retryCount}/${this.maxRetries})`);
+                setTimeout(() => this.init(), 5000);
+            }
+        }
+    }
+
+    // Enviar mensaje privado
+    async sendMessage(from, to, subject, content) {
+        if (!this.initialized || !this.sheet) {
+            console.log('⚠️  Inbox no inicializado - mensaje no enviado');
+            return false;
+        }
+
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+        const messageData = {
+            id: messageId,
+            from: from,
+            to: to,
+            subject: subject,
+            content: content,
+            timestamp: new Date().toISOString(),
+            read: 'false',
+            expiresAt: expiresAt.toISOString()
+        };
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                await this.sheet.addRow(messageData);
+                console.log(`📬 Mensaje enviado: ${from} → ${to}`);
+                return messageId;
+            } catch (error) {
+                console.error(`❌ Error enviando mensaje (intento ${attempt}/3):`, error);
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+        }
+        return false;
+    }
+
+    // Obtener mensajes del usuario
+    async getMessages(user) {
+        if (!this.initialized || !this.sheet) {
+            console.log('⚠️  Inbox no inicializado');
+            return [];
+        }
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const rows = await this.sheet.getRows();
+                const now = new Date();
+
+                const messages = rows
+                    .filter(row => {
+                        if (row.to !== user) return false;
+                        if (!row.expiresAt) return true;
+                        const expiresAt = new Date(row.expiresAt);
+                        return expiresAt > now;
+                    })
+                    .map(row => ({
+                        id: row.id,
+                        from: row.from,
+                        to: row.to,
+                        subject: row.subject,
+                        content: row.content,
+                        timestamp: new Date(row.timestamp).getTime(),
+                        read: row.read === 'true',
+                        expiresAt: row.expiresAt
+                    }))
+                    .sort((a, b) => b.timestamp - a.timestamp); // Más recientes primero
+
+                console.log(`📬 ${messages.length} mensajes encontrados para ${user}`);
+                return messages;
+            } catch (error) {
+                console.error(`❌ Error obteniendo mensajes (intento ${attempt}/3):`, error);
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } else {
+                    return [];
+                }
+            }
+        }
+    }
+
+    // Marcar mensaje como leído
+    async markAsRead(messageId) {
+        if (!this.initialized || !this.sheet) return false;
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const rows = await this.sheet.getRows();
+                const row = rows.find(r => r.id === messageId);
+                if (row) {
+                    row.read = 'true';
+                    await row.save();
+                    console.log(`✅ Mensaje ${messageId} marcado como leído`);
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error(`❌ Error marcando mensaje como leído (intento ${attempt}/3):`, error);
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+        }
+        return false;
+    }
+
+    // Eliminar mensaje (cuando expira o usuario lo borra)
+    async deleteMessage(messageId) {
+        if (!this.initialized || !this.sheet) return false;
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const rows = await this.sheet.getRows();
+                const rowIndex = rows.findIndex(r => r.id === messageId);
+                if (rowIndex !== -1) {
+                    await rows[rowIndex].delete();
+                    console.log(`🗑️ Mensaje ${messageId} eliminado`);
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error(`❌ Error eliminando mensaje (intento ${attempt}/3):`, error);
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+        }
+        return false;
+    }
+
+    // Limpiar mensajes expirados
+    async cleanupExpiredMessages() {
+        if (!this.initialized || !this.sheet) return;
+
+        try {
+            const rows = await this.sheet.getRows();
+            const now = new Date();
+            let deletedCount = 0;
+
+            for (const row of rows) {
+                if (row.expiresAt) {
+                    const expiresAt = new Date(row.expiresAt);
+                    if (expiresAt <= now) {
+                        await row.delete();
+                        deletedCount++;
+                    }
+                }
+            }
+
+            if (deletedCount > 0) {
+                console.log(`🧹 Inbox: ${deletedCount} mensajes expirados eliminados`);
+            }
+        } catch (error) {
+            console.error('❌ Error limpiando mensajes expirados:', error);
+        }
+    }
+}
+
+// ============================================================================
 // 🎵 CLASE SACM TRACKER (EXISTENTE - SIN MODIFICACIONES)
 // ============================================================================
 class SACMTracker {
@@ -453,6 +665,9 @@ sacmTracker.init();
 
 const postsPersistence = new PostsPersistence();
 postsPersistence.init();
+
+const inboxSystem = new InboxSystem();
+inboxSystem.init();
 
 const dailyPlaylist = new DailyPlaylist(); // 🎵 Solo playlist, sin control de reproducción
 
@@ -822,6 +1037,50 @@ async function handleMessage(socket, data) {
             console.log('🎵 Reproducción completada:', data.songId, 'duración:', data.duration);
             sacmTracker.trackPlay(data.songId, data.userId, data.duration);
             break;
+        // 📬 Eventos de inbox
+        case 'send_message':
+            const messageId = await inboxSystem.sendMessage(data.from, data.to, data.subject, data.content);
+            if (messageId) {
+                socket.send(JSON.stringify({
+                    type: 'message_sent',
+                    messageId: messageId,
+                    success: true
+                }));
+                // Notificar al destinatario si está conectado
+                broadcast({
+                    type: 'new_message',
+                    message: {
+                        id: messageId,
+                        from: data.from,
+                        to: data.to,
+                        subject: data.subject,
+                        content: data.content,
+                        timestamp: Date.now(),
+                        read: false
+                    }
+                });
+            } else {
+                socket.send(JSON.stringify({
+                    type: 'message_error',
+                    message: 'Error enviando mensaje'
+                }));
+            }
+            break;
+        case 'get_messages':
+            const messages = await inboxSystem.getMessages(data.user);
+            socket.send(JSON.stringify({
+                type: 'messages_list',
+                messages: messages
+            }));
+            break;
+        case 'mark_message_read':
+            const marked = await inboxSystem.markAsRead(data.messageId);
+            socket.send(JSON.stringify({
+                type: 'message_marked_read',
+                messageId: data.messageId,
+                success: marked
+            }));
+            break;
     }
 }
 
@@ -900,6 +1159,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('   - Proyectos: 60 días');
     console.log('   - Eventos: Hasta la fecha del evento');
     console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
+    console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
 });
 
 process.on('uncaughtException', (error) => {

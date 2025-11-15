@@ -379,7 +379,7 @@ class GridyClient {
         if (this.posts.length === 0) {
             gridContainer.innerHTML = `
                 <div class="loading">
-                    <h3>¡Bienvenido al MESH de TCSACM! 🌟</h3>
+                    <h3>¡Bienvenido al DJMesh! 🌟</h3>
                     <p>Sé el primero en publicar haciendo doble click en cualquier lugar</p>
                     <p>O usa el botón naranja en la esquina inferior derecha</p>
                 </div>
@@ -874,7 +874,7 @@ class MusicPlayer {
             <div class="music-player" id="musicPlayerContainer">
                 <button id="musicToggle" class="music-toggle-btn">🎵</button>
                 <div class="player-info">
-                    <span id="nowPlaying">Música Comunal TCSACM</span>
+                    <span id="nowPlaying">DJMesh - Música Compartida</span>
                     <div class="player-controls">
                         <button id="prevTrack" class="control-btn">⏮️</button>
                         <button id="nextTrack" class="control-btn">⏭️</button>
