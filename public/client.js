@@ -1131,6 +1131,18 @@ class MusicPlayer {
                         <button id="nextTrack" class="control-btn">⏭️</button>
                     </div>
                 </div>
+                <!-- 🆕 VISUALIZADOR DE AUDIO ESTILO WINAMP -->
+                <div class="audio-visualizer">
+                    <canvas id="waveformCanvas" width="200" height="60"></canvas>
+                    <div class="audio-levels">
+                        <div class="level-bar left">
+                            <div class="level-fill" id="leftLevel"></div>
+                        </div>
+                        <div class="level-bar right">
+                            <div class="level-fill" id="rightLevel"></div>
+                        </div>
+                    </div>
+                </div>
                 <!-- 🆕 MENSAJE MEJORADO PARA MÓVILES -->
                 <div id="mobileHelp" class="mobile-help" style="display: none;">
                     👆 Toca para activar la música
@@ -1141,8 +1153,144 @@ class MusicPlayer {
 
         // 🎯 CONFIGURAR EVENT LISTENERS ESPECIALES PARA MÓVILES
         this.setupMobileEvents();
-        
-        console.log('🎵 UI del Music Player creada con soporte móvil');
+
+        // 🆕 INICIALIZAR VISUALIZADOR DE AUDIO
+        this.initAudioVisualizer();
+
+        console.log('🎵 UI del Music Player creada con visualizador estilo Winamp');
+    }
+
+    // 🆕 INICIALIZAR VISUALIZADOR DE AUDIO ESTILO WINAMP
+    initAudioVisualizer() {
+        this.canvas = document.getElementById('waveformCanvas');
+        if (!this.canvas) return;
+
+        this.canvasContext = this.canvas.getContext('2d');
+        this.analyser = null;
+        this.dataArray = null;
+        this.animationId = null;
+
+        // 🆕 CONFIGURAR WEB AUDIO API PARA VISUALIZACIÓN
+        this.setupAudioContext();
+
+        // 🆕 INICIAR ANIMACIÓN DEL VISUALIZADOR
+        this.startVisualization();
+
+        console.log('🎵 Visualizador de audio Winamp inicializado');
+    }
+
+    // 🆕 CONFIGURAR WEB AUDIO API
+    setupAudioContext() {
+        try {
+            // Crear AudioContext si no existe
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Crear analyser node
+            this.analyser = this.audioContext.createAnalyser();
+            this.analyser.fftSize = 256;
+            this.analyser.smoothingTimeConstant = 0.8;
+
+            // Conectar audio al analyser
+            const source = this.audioContext.createMediaElementSource(this.audio);
+            source.connect(this.analyser);
+            source.connect(this.audioContext.destination);
+
+            // Crear buffer para datos de frecuencia
+            this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+            console.log('🎵 Web Audio API configurada para visualización');
+        } catch (error) {
+            console.error('❌ Error configurando Web Audio API:', error);
+        }
+    }
+
+    // 🆕 INICIAR ANIMACIÓN DEL VISUALIZADOR
+    startVisualization() {
+        const draw = () => {
+            if (!this.analyser || !this.canvasContext) return;
+
+            this.animationId = requestAnimationFrame(draw);
+
+            // Obtener datos de frecuencia
+            this.analyser.getByteFrequencyData(this.dataArray);
+
+            // Limpiar canvas
+            this.canvasContext.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            this.canvasContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Dibujar waveform estilo Winamp
+            this.drawWaveform();
+
+            // Actualizar barras de nivel
+            this.updateLevelBars();
+        };
+
+        draw();
+    }
+
+    // 🆕 DIBUJAR WAVEFORM ESTILO WINAMP
+    drawWaveform() {
+        const canvas = this.canvas;
+        const ctx = this.canvasContext;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Estilo Winamp: barras verticales con gradiente
+        const barWidth = width / this.dataArray.length * 2.5;
+        let barHeight;
+        let x = 0;
+
+        for (let i = 0; i < this.dataArray.length; i++) {
+            barHeight = (this.dataArray[i] / 255) * height;
+
+            // Gradiente de colores estilo Winamp (verde a rojo)
+            const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
+            gradient.addColorStop(0, '#00ff00'); // Verde
+            gradient.addColorStop(0.5, '#ffff00'); // Amarillo
+            gradient.addColorStop(1, '#ff0000'); // Rojo
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+            x += barWidth + 1;
+        }
+    }
+
+    // 🆕 ACTUALIZAR BARRAS DE NIVEL DE AUDIO
+    updateLevelBars() {
+        if (!this.dataArray) return;
+
+        // Calcular niveles izquierdo y derecho (simulado)
+        let leftLevel = 0;
+        let rightLevel = 0;
+
+        // Simular separación estéreo dividiendo el array
+        const midPoint = Math.floor(this.dataArray.length / 2);
+
+        for (let i = 0; i < midPoint; i++) {
+            leftLevel = Math.max(leftLevel, this.dataArray[i]);
+            rightLevel = Math.max(rightLevel, this.dataArray[i + midPoint]);
+        }
+
+        // Convertir a porcentaje
+        leftLevel = (leftLevel / 255) * 100;
+        rightLevel = (rightLevel / 255) * 100;
+
+        // Actualizar barras visuales
+        const leftBar = document.getElementById('leftLevel');
+        const rightBar = document.getElementById('rightLevel');
+
+        if (leftBar) {
+            leftBar.style.height = `${leftLevel}%`;
+            leftBar.style.backgroundColor = leftLevel > 80 ? '#ff0000' : leftLevel > 60 ? '#ffff00' : '#00ff00';
+        }
+
+        if (rightBar) {
+            rightBar.style.height = `${rightLevel}%`;
+            rightBar.style.backgroundColor = rightLevel > 80 ? '#ff0000' : rightLevel > 60 ? '#ffff00' : '#00ff00';
+        }
     }
 
     // 🆕 CONFIGURACIÓN ESPECIAL PARA MÓVILES

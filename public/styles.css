@@ -1260,3 +1260,96 @@ body.composer-mode .post-cell {
         font-size: 0.8em;
     }
 }
+
+/* 🆕 VISUALIZADOR DE AUDIO ESTILO WINAMP */
+.audio-visualizer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+#waveformCanvas {
+    background: linear-gradient(180deg, #000000 0%, #111111 100%);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+}
+
+/* 🆕 BARRAS DE NIVEL DE AUDIO */
+.audio-levels {
+    display: flex;
+    gap: 4px;
+    height: 60px;
+    align-items: end;
+}
+
+.level-bar {
+    width: 8px;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.level-bar.left {
+    background: linear-gradient(180deg, #00ff00 0%, #008000 100%);
+}
+
+.level-bar.right {
+    background: linear-gradient(180deg, #00ff00 0%, #008000 100%);
+}
+
+.level-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, #00ff00 0%, #ffff00 50%, #ff0000 100%);
+    transition: height 0.1s ease;
+    border-radius: 1px;
+}
+
+/* 🆕 RESPONSIVE PARA VISUALIZADOR */
+@media (max-width: 768px) {
+    .audio-visualizer {
+        margin-top: 6px;
+    }
+
+    #waveformCanvas {
+        width: 150px !important;
+        height: 45px !important;
+    }
+
+    .audio-levels {
+        height: 45px;
+    }
+
+    .level-bar {
+        width: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .audio-visualizer {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    #waveformCanvas {
+        width: 120px !important;
+        height: 35px !important;
+    }
+
+    .audio-levels {
+        height: 35px;
+        flex-direction: row;
+        justify-content: center;
+    }
+
+    .level-bar {
+        width: 4px;
+        height: 35px;
+    }
+}
