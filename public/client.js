@@ -1,4 +1,4 @@
-class GridyClient {
+class DJMeshClient {
     constructor() {
         this.socket = null;
         this.posts = [];
@@ -8,18 +8,18 @@ class GridyClient {
         this.currentPost = null;
         this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia
         this.djMode = true;
-        
+
         this.init();
     }
-    
+
     init() {
-        console.log('🚀 Iniciando MESH Client...');
+        console.log('🚀 Iniciando DJMesh Client...');
         this.loadUser();
         this.setupEventListeners();
         this.connect();
         this.loadTheme();
         this.startVisualDecay();
-        this.createComposerFeatures();
+        this.createDJFeatures();
         this.createDynamicBackground();
         // 🎯 INICIALIZAR MUSIC PLAYER CON RETRASO PARA MÓVILES
         setTimeout(() => {
@@ -29,7 +29,7 @@ class GridyClient {
     }
     
     loadUser() {
-        const savedNickname = localStorage.getItem('gridy_nickname');
+        const savedNickname = localStorage.getItem('djmesh_nickname');
         if (savedNickname) {
             this.currentUser = savedNickname;
             this.hideNicknameModal();
@@ -93,7 +93,7 @@ class GridyClient {
         console.log('✅ Eventos configurados');
     }
 
-    createComposerFeatures() {
+    createDJFeatures() {
         if (document.querySelector('.dj-panel')) return;
 
         const djPanel = document.createElement('div');
@@ -216,7 +216,7 @@ class GridyClient {
     }
 
     loadTheme() {
-        const savedTheme = localStorage.getItem('gridy_theme');
+        const savedTheme = localStorage.getItem('djmesh_theme');
         if (savedTheme === 'night') {
             document.body.classList.add('night-mode');
         }
@@ -237,8 +237,8 @@ class GridyClient {
     toggleTheme() {
         document.body.classList.toggle('night-mode');
         const isNightMode = document.body.classList.contains('night-mode');
-        localStorage.setItem('gridy_theme', isNightMode ? 'night' : 'day');
-        
+        localStorage.setItem('djmesh_theme', isNightMode ? 'night' : 'day');
+
         const toggleBtn = document.querySelector('.theme-toggle');
         if (toggleBtn) {
             toggleBtn.innerHTML = isNightMode ? '☀️' : '🌙';
@@ -249,7 +249,7 @@ class GridyClient {
         const nickname = document.getElementById('nicknameInput').value.trim();
         if (nickname && nickname.length >= 2) {
             this.currentUser = nickname;
-            localStorage.setItem('gridy_nickname', nickname);
+            localStorage.setItem('djmesh_nickname', nickname);
             this.hideNicknameModal();
             this.connect();
         } else {
@@ -270,7 +270,7 @@ class GridyClient {
             this.socket = new WebSocket(wsUrl);
             
             this.socket.onopen = () => {
-                console.log('✅ Conectado al MESH TCSACM');
+                console.log('✅ Conectado al DJMesh');
                 this.reconnectAttempts = 0;
                 this.updateStatus('Conectado 🌐');
             };
@@ -451,7 +451,7 @@ class GridyClient {
         
         if (isCollaboration && isAuthor && !post.isResolved) {
             return `
-                <button class="resolve-btn" onclick="window.gridyApp.resolvePost('${post.id}')" 
+                <button class="resolve-btn" onclick="window.djmeshApp.resolvePost('${post.id}')"
                         title="Marcar como resuelto">
                     ✅ Resuelto
                 </button>
@@ -1233,6 +1233,6 @@ class MusicPlayer {
 
 // Inicializar la aplicación
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎮 MESH iniciando...');
-    window.gridyApp = new GridyClient();
+    console.log('🎮 DJMesh iniciando...');
+    window.djmeshApp = new DJMeshClient();
 });

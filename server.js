@@ -1146,20 +1146,21 @@ server.on('error', (error) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor DJMesh ejecutándose en puerto ${PORT}`);
-    console.log('🎧 Sistema de DJs ACTIVADO - Posts ilimitados para contenido musical');
-    console.log('💾 Sistema de persistencia ACTIVADO - Posts importantes se guardan en Google Sheets');
-    console.log('🎵 Playlist diaria ACTIVADA - Lista aleatoria compartida, control individual');
-    console.log('📊 Backup automático cada 3 minutos');
-    console.log('🔄 Sistema de reintentos ACTIVADO para Google Sheets');
-    console.log('🔧 Características:');
-    console.log('   - Posts generales: 1 por día, duran 24h');
-    console.log('   - Posts importantes: Persisten hasta resolución');
-    console.log('   - Colaboraciones: 30 días');
-    console.log('   - Proyectos: 60 días');
-    console.log('   - Eventos: Hasta la fecha del evento');
-    console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
-    console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
+console.log(`🚀 Servidor DJMesh ejecutándose en puerto ${PORT}`);
+console.log('🎧 Sistema de DJs ACTIVADO - Posts ilimitados para contenido musical');
+console.log('💾 Sistema de persistencia ACTIVADO - Posts importantes se guardan en Google Sheets');
+console.log('🎵 Playlist diaria ACTIVADA - Lista aleatoria compartida, control individual');
+console.log('📊 Backup automático cada 3 minutos');
+console.log('🔄 Sistema de reintentos ACTIVADO para Google Sheets');
+console.log('🔧 Características:');
+console.log('   - Posts generales: 1 por día, duran 24h');
+console.log('   - Posts importantes: Persisten hasta resolución');
+console.log('   - Colaboraciones: 30 días');
+console.log('   - Proyectos: 60 días');
+console.log('   - Eventos: Hasta la fecha del evento');
+console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
+console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
+console.log('🎯 Servidor inicializado con 0 posts (0 persistentes cargados)');
 });
 
 process.on('uncaughtException', (error) => {
