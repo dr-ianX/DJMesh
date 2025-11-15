@@ -795,8 +795,8 @@ class DJMeshClient {
 
 // 🎵 REPRODUCTOR DE AUDIO COMPATIBLE CON MÓVILES - MEJORADO PARA BRAVE
 class MusicPlayer {
-    constructor(gridyClient) {
-        this.gridyClient = gridyClient;
+    constructor(djmeshClient) {
+        this.djmeshClient = djmeshClient;
         this.tracks = [];
         this.currentTrackIndex = 0;
         this.audio = new Audio();
@@ -1021,7 +1021,7 @@ class MusicPlayer {
         if (currentTrack) {
             document.getElementById('nowPlaying').textContent = `Sonando: ${currentTrack.name}`;
             // 🎯 Actualizar fondo dinámico
-            this.gridyClient.updateDynamicBackground(currentTrack.image);
+            this.djmeshClient.updateDynamicBackground(currentTrack.image);
         }
     }
 
@@ -1166,22 +1166,22 @@ class MusicPlayer {
     startSACMTracking(trackName) {
         this.trackStartTime = Date.now();
         this.currentTrackName = trackName;
-        
-        if (this.gridyClient.socket?.readyState === WebSocket.OPEN) {
-            this.gridyClient.socket.send(JSON.stringify({
+
+        if (this.djmeshClient.socket?.readyState === WebSocket.OPEN) {
+            this.djmeshClient.socket.send(JSON.stringify({
                 type: 'music_play_start',
                 songId: trackName,
-                userId: this.gridyClient.currentUser
+                userId: this.djmeshClient.currentUser
             }));
         }
     }
 
     completeSACMTracking(trackName, duration) {
-        if (this.gridyClient.socket?.readyState === WebSocket.OPEN) {
-            this.gridyClient.socket.send(JSON.stringify({
+        if (this.djmeshClient.socket?.readyState === WebSocket.OPEN) {
+            this.djmeshClient.socket.send(JSON.stringify({
                 type: 'music_play_complete',
                 songId: trackName,
-                userId: this.gridyClient.currentUser,
+                userId: this.djmeshClient.currentUser,
                 duration: duration
             }));
             console.log('📊 Tracking SACM enviado:', { trackName, duration });
