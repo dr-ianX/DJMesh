@@ -1047,17 +1047,22 @@ async function handleMessage(socket, data) {
                     messageId: messageId,
                     success: true
                 }));
-                // Notificar al destinatario si está conectado
-                broadcast({
-                    type: 'new_message',
-                    message: {
-                        id: messageId,
-                        from: data.from,
-                        to: data.to,
-                        subject: data.subject,
-                        content: data.content,
-                        timestamp: Date.now(),
-                        read: false
+                // Notificar SOLO al destinatario si está conectado
+                const message = {
+                    id: messageId,
+                    from: data.from,
+                    to: data.to,
+                    subject: data.subject,
+                    content: data.content,
+                    timestamp: Date.now(),
+                    read: false
+                };
+                wss.clients.forEach(client => {
+                    if (client.userId === data.to && client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({
+                            type: 'new_message',
+                            message: message
+                        }));
                     }
                 });
             } else {
@@ -1073,6 +1078,11 @@ async function handleMessage(socket, data) {
                 type: 'messages_list',
                 messages: messages
             }));
+            break;
+        case 'join':
+            // 🆕 ASOCIAR USUARIO AL SOCKET PARA MENSAJES
+            socket.userId = data.user;
+            console.log(`👋 Usuario ${data.user} se unió`);
             break;
         case 'mark_message_read':
             const marked = await inboxSystem.markAsRead(data.messageId);
@@ -1120,6 +1130,19 @@ wss.on('connection', (socket, req) => {
             }));
         }
     });
+
+    // 🆕 ENVIAR MENSAJES PENDIENTES AL CONECTAR
+    if (socket.userId) {
+        setTimeout(async () => {
+            const messages = await inboxSystem.getMessages(socket.userId);
+            if (messages.length > 0) {
+                socket.send(JSON.stringify({
+                    type: 'messages_list',
+                    messages: messages
+                }));
+            }
+        }, 1000); // Esperar 1 segundo para que se estabilice la conexión
+    }
 
     socket.on('close', () => {
         console.log('👋 Usuario desconectado');
