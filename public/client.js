@@ -411,6 +411,23 @@ class DJMeshClient {
             case 'online_users_count':
                 this.updateOnlineCounter(data.count);
                 break;
+
+            // 🆕 Manejar mensajes de inbox
+            case 'messages_list':
+                this.displayMessages(data.messages);
+                break;
+
+            case 'new_message':
+                this.handleNewMessage(data.message);
+                break;
+
+            case 'message_sent':
+                alert('Mensaje enviado correctamente!');
+                break;
+
+            case 'message_error':
+                alert('Error al enviar mensaje: ' + data.message);
+                break;
         }
     }
     
@@ -620,6 +637,111 @@ class DJMeshClient {
 
             alert('Mensaje enviado!');
         }
+    }
+
+    // 🆕 MOSTRAR MENSAJES EN LA INTERFAZ
+    displayMessages(messages) {
+        const messagesContainer = document.getElementById('inboxMessages');
+        if (!messagesContainer) return;
+
+        messagesContainer.innerHTML = '';
+
+        if (messages.length === 0) {
+            messagesContainer.innerHTML = '<div class="loading">No tienes mensajes</div>';
+            return;
+        }
+
+        messages.forEach(message => {
+            const messageItem = document.createElement('div');
+            messageItem.className = `message-item ${message.read ? '' : 'unread'}`;
+            messageItem.innerHTML = `
+                <div class="message-subject">${message.subject}</div>
+                <div class="message-from">De: ${message.from}</div>
+                <div class="message-preview">${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}</div>
+                <div class="message-timestamp">${new Date(message.timestamp).toLocaleString()}</div>
+            `;
+
+            messageItem.addEventListener('click', () => {
+                this.showMessageDetails(message);
+            });
+
+            messagesContainer.appendChild(messageItem);
+        });
+    }
+
+    // 🆕 MOSTRAR DETALLES DEL MENSAJE
+    showMessageDetails(message) {
+        // Marcar como leído si no lo está
+        if (!message.read) {
+            this.markMessageAsRead(message.id);
+        }
+
+        // Mostrar modal con detalles
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close-btn" onclick="this.closest('.modal').remove()">&times;</span>
+                <h3>${message.subject}</h3>
+                <div class="message-details">
+                    <p><strong>De:</strong> ${message.from}</p>
+                    <p><strong>Fecha:</strong> ${new Date(message.timestamp).toLocaleString()}</p>
+                    <hr>
+                    <div class="message-content">${message.content.replace(/\n/g, '<br>')}</div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.style.display = 'flex';
+    }
+
+    // 🆕 MARCAR MENSAJE COMO LEÍDO
+    markMessageAsRead(messageId) {
+        if (this.socket?.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'mark_message_read',
+                messageId: messageId
+            }));
+        }
+    }
+
+    // 🆕 MANEJAR NUEVO MENSAJE RECIBIDO
+    handleNewMessage(message) {
+        // Mostrar notificación
+        this.showNotification(`Nuevo mensaje de ${message.from}: ${message.subject}`);
+
+        // Recargar mensajes si el inbox está abierto
+        if (document.getElementById('inboxModal').style.display === 'flex') {
+            this.loadMessages();
+        }
+    }
+
+    // 🆕 MOSTRAR NOTIFICACIÓN
+    showNotification(message) {
+        // Crear notificación flotante
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 255, 255, 0.9);
+            color: black;
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+
+        document.body.appendChild(notification);
+
+        // Auto-remover después de 5 segundos
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
     }
 
     // 🎵 Calcular tamaño inteligente
@@ -1146,12 +1268,16 @@ class MusicPlayer {
     }
 
     updatePlayerUI() {
-        const currentTrack = this.playlist[this.currentTrackIndex];
-        if (currentTrack) {
-            document.getElementById('nowPlaying').textContent = `Sonando: ${currentTrack.name}`;
-            // 🎯 Actualizar fondo dinámico
-            this.djmeshClient.updateDynamicBackground(currentTrack.image);
-        }
+        // 🆕 Asegurarse de que los elementos existen antes de usarlos
+        setTimeout(() => {
+            const nowPlaying = document.getElementById('nowPlaying');
+            const currentTrack = this.playlist[this.currentTrackIndex];
+            if (nowPlaying && currentTrack) {
+                nowPlaying.textContent = `Sonando: ${currentTrack.name}`;
+                // 🎯 Actualizar fondo dinámico
+                this.djmeshClient.updateDynamicBackground(currentTrack.image);
+            }
+        }, 100);
     }
 
     setupAudioEvents() {
