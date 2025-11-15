@@ -8,13 +8,17 @@
     "dev": "node server.js"
   },
   "dependencies": {
-    "ws": "^8.14.0",
-    "google-spreadsheet": "^3.3.0"
+    "google-spreadsheet": "^5.0.2",
+    "ws": "^8.14.0"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["social", "websockets", "minimalist"],
+  "keywords": [
+    "social",
+    "websockets",
+    "minimalist"
+  ],
   "author": "AdrianParedes",
   "license": "MIT"
 }
