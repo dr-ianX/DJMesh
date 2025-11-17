@@ -1037,11 +1037,163 @@ class DJConsole {
                 this.updateTimeDisplay();
             }
 
-            this.drawSpectrum();
-            this.drawCircularBPM();
+            // 🆕 Verificar que los métodos existen antes de llamarlos
+            if (typeof this.drawSpectrum === 'function') {
+                this.drawSpectrum();
+            }
+            if (typeof this.drawCircularBPM === 'function') {
+                this.drawCircularBPM();
+            }
         };
 
         animate();
+    }
+
+    // 🆕 AGREGAR MÉTODOS FALTANTES PARA EVITAR ERRORES
+    drawSpectrum() {
+        if (!this.analyser || !this.spectrumCtx) return;
+
+        const bufferLength = this.analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        this.analyser.getByteFrequencyData(dataArray);
+
+        const canvas = this.elements.spectrumViz;
+        const ctx = this.spectrumCtx;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+
+        const barWidth = (width / bufferLength) * 2.5;
+        let barHeight;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            barHeight = (dataArray[i] / 255) * height;
+
+            const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
+            gradient.addColorStop(0, '#00ffff');
+            gradient.addColorStop(1, '#ff00ff');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+            x += barWidth + 1;
+        }
+    }
+
+    drawCircularBPM() {
+        if (!this.circularCtx) return;
+
+        const canvas = this.elements.circularBPM;
+        const ctx = this.circularCtx;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(centerX, centerY) - 5;
+
+        // Limpiar canvas
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Dibujar círculo base
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        // Dibujar BPM visual
+        const bpmAngle = (this.bpm / 200) * 2 * Math.PI; // Normalizar BPM
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - 5, -Math.PI / 2, bpmAngle - Math.PI / 2);
+        ctx.stroke();
+
+        // Texto BPM
+        ctx.fillStyle = '#ffff00';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.bpm.toString(), centerX, centerY + 4);
+    }
+
+    // 🆕 AGREGAR MÉTODOS FALTANTES PARA CUE POINTS Y LOOP
+    updateCuePoints() {
+        if (!this.elements.cuePoints) return;
+
+        // Limpiar cue points existentes
+        this.elements.cuePoints.innerHTML = '';
+
+        // Dibujar cue points
+        this.cuePoints.forEach((time, index) => {
+            if (time !== null && this.duration > 0) {
+                const ratio = time / this.duration;
+                const canvasWidth = this.elements.mainWaveform.width;
+                const left = ratio * canvasWidth;
+
+                const cueElement = document.createElement('div');
+                cueElement.className = 'cue-point';
+                cueElement.style.left = left + 'px';
+                cueElement.title = `Cue ${index + 1}: ${this.formatTime(time)}`;
+                cueElement.addEventListener('click', () => {
+                    this.currentTime = time;
+                    this.updatePlayhead();
+                    if (this.isPlaying) {
+                        this.pause();
+                        this.play();
+                    }
+                });
+
+                this.elements.cuePoints.appendChild(cueElement);
+            }
+        });
+    }
+
+    updateLoopRegion() {
+        if (!this.elements.loopRegion) return;
+
+        // Limpiar loop region existente
+        this.elements.loopRegion.innerHTML = '';
+
+        if (this.loopRegion.start !== null && this.loopRegion.end !== null && this.duration > 0) {
+            const startRatio = this.loopRegion.start / this.duration;
+            const endRatio = this.loopRegion.end / this.duration;
+            const canvasWidth = this.elements.mainWaveform.width;
+
+            const loopElement = document.createElement('div');
+            loopElement.className = 'loop-region-active';
+            loopElement.style.left = (startRatio * canvasWidth) + 'px';
+            loopElement.style.width = ((endRatio - startRatio) * canvasWidth) + 'px';
+            loopElement.style.height = '100%';
+            loopElement.style.background = 'rgba(255, 255, 0, 0.3)';
+            loopElement.style.borderLeft = '2px solid #ffff00';
+            loopElement.style.borderRight = '2px solid #ffff00';
+            loopElement.style.position = 'absolute';
+            loopElement.style.top = '0';
+            loopElement.style.pointerEvents = 'none';
+
+            this.elements.loopRegion.appendChild(loopElement);
+        }
+    }
+
+    // 🆕 AGREGAR MÉTODO PARA CREAR IMPULSE RESPONSE PARA REVERB
+    createReverbImpulse() {
+        if (!this.audioContext) return;
+
+        const length = this.audioContext.sampleRate * this.effects.reverb.decay;
+        const impulse = this.audioContext.createBuffer(2, length, this.audioContext.sampleRate);
+
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, this.effects.reverb.decay);
+            }
+        }
+
+        if (this.convolver) {
+            this.convolver.buffer = impulse;
+        }
     }
 
     updatePlayhead() {

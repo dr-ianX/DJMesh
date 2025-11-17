@@ -795,8 +795,8 @@ const server = http.createServer((req, res) => {
                 // CSP estricto para otras páginas
                 cspHeader = [
                     "default-src 'self'",
-                    "script-src 'self' 'unsafe-inline' https://djmesh.onrender.com",
-                    "script-src-elem 'self' 'unsafe-inline' https://djmesh.onrender.com",
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://djmesh.onrender.com",
+                    "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://djmesh.onrender.com",
                     "style-src 'self' 'unsafe-inline'",
                     "style-src-elem 'self' 'unsafe-inline'",
                     "img-src 'self' data: https:",
