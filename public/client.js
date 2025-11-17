@@ -6,7 +6,8 @@ class DJMeshClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.currentPost = null;
-        this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia\n        this.djConsole = new DJConsole(this); // ?? DJ Console avanzada
+        this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia\n        
+        this.djConsole = new DJConsole(this); // ?? DJ Console avanzada
         this.djMode = true;
 
         this.init();
