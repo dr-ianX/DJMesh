@@ -6,7 +6,7 @@ class DJMeshClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.currentPost = null;
-        this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia
+        this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia\n        this.djConsole = new DJConsole(this); // ?? DJ Console avanzada
         this.djMode = true;
 
         this.init();
@@ -24,7 +24,7 @@ class DJMeshClient {
         this.createOnlineCounter(); // 🆕 Contador de usuarios online
         // 🎯 INICIALIZAR MUSIC PLAYER CON RETRASO PARA MÓVILES
         setTimeout(() => {
-            this.musicPlayer.init();
+            this.djConsole.init();
             console.log('🎵 Music Player inicializado para móviles');
         }, 1500);
     }
