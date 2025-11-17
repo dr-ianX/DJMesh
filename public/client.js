@@ -16,8 +16,8 @@ class DJMeshClient {
 
     init() {
         console.log(' Iniciando DJMesh Client...');
-        this.setupEventListeners(); // Mover antes de loadUser para asegurar eventos estén listos
-        this.loadUser();
+        this.loadUser(); // Mover loadUser primero para manejar errores de localStorage
+        this.setupEventListeners(); // Después configurar eventos
         this.connect();
         this.loadTheme();
         this.startVisualDecay();

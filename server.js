@@ -786,7 +786,8 @@ const server = http.createServer((req, res) => {
                 'Content-Type': contentType,
                 'Content-Length': content.length,
                 'Cache-Control': 'public, max-age=3600',
-                'Content-Security-Policy': cspHeader
+                'Content-Security-Policy': cspHeader,
+                'X-Content-Type-Options': 'nosniff'
             });
             res.end(content);
         }
