@@ -108,12 +108,27 @@
     <script>
         // Inicializar la consola de DJ cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
-            // Aquí puedes inicializar la consola de DJ
-            // Por ejemplo: 
-            // const djConsole = new DJConsole();
-            // djConsole.init();
-            
             console.log('Consola de DJ lista para usar');
+
+            // 🆕 INTENTAR INICIALIZAR LA CONSOLA DE DJ
+            try {
+                const djConsole = new DJConsole();
+                djConsole.init();
+                console.log('🎛️ DJ Console inicializada correctamente');
+            } catch (error) {
+                console.error('❌ Error inicializando DJ Console:', error);
+                // Mostrar mensaje de error en la página
+                const consoleDiv = document.getElementById('dj-console');
+                if (consoleDiv) {
+                    consoleDiv.innerHTML = `
+                        <div style="color: red; text-align: center; padding: 20px;">
+                            <h3>❌ Error cargando la consola de DJ</h3>
+                            <p>Revisa la consola del navegador para más detalles.</p>
+                            <p>Error: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
         });
     </script>
 </body>

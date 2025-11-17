@@ -770,11 +770,13 @@ const server = http.createServer((req, res) => {
         } else {
             console.log('✅ Sirviendo archivo:', filePath);
 
-            // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES
+            // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES - MEJORADA
             const cspHeader = [
                 "default-src 'self'",
                 "script-src 'self' 'unsafe-inline' https://djmesh.onrender.com",
+                "script-src-elem 'self' 'unsafe-inline' https://djmesh.onrender.com",
                 "style-src 'self' 'unsafe-inline'",
+                "style-src-elem 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self'",
                 "connect-src 'self' ws: wss: https:",

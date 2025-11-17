@@ -3,15 +3,13 @@
 
 class DJConsole {
     constructor() {
-        // Inicializar el contexto de audio
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Inicializar propiedades básicas
+        this.audioContext = null;
         this.audioBuffer = null;
         this.source = null;
-        this.analyser = this.audioContext.createAnalyser();
-        this.analyser.fftSize = 256;
-        this.gainNode = this.audioContext.createGain();
-        this.gainNode.gain.value = 0.8;
-        
+        this.analyser = null;
+        this.gainNode = null;
+
         // Configuración inicial
         this.isPlaying = false;
         this.currentTime = 0;
@@ -19,37 +17,41 @@ class DJConsole {
         this.volume = 0.8;
         this.bpm = 128;
         this.currentTrack = null;
-        
-        // Referencias a elementos del DOM
-        this.elements = {
-            playPauseBtn: null,
-            volumeSlider: null,
-            progressBar: null,
-            currentTimeDisplay: null,
-            durationDisplay: null,
-            trackTitle: null,
-            waveformCanvas: null,
-            fileInput: null,
-            eqLow: null,
-            eqMid: null,
-            eqHigh: null,
-            bpmDisplay: null
+
+        // Efectos y controles
+        this.eq = { low: 0, mid: 0, high: 0 };
+        this.killSwitches = { low: false, mid: false, high: false };
+        this.filter = { type: 'off', frequency: 1000, Q: 1 };
+        this.effects = {
+            reverb: { mix: 0, decay: 2 },
+            delay: { time: 0.5, feedback: 0.3 },
+            distortion: { drive: 0 },
+            phaser: { rate: 0.5 }
         };
-        
-        // Inicializar la interfaz
-        this.initUI();
-        this.setupEventListeners();
+        this.crossfader = 0.5;
+        this.crossfaderCurve = 1;
+        this.tempo = 1.0;
+        this.cuePoints = new Array(8).fill(null);
+        this.loopRegion = { start: null, end: null, active: false };
+
+        // Referencias a elementos del DOM
+        this.elements = {};
 
         console.log('🎛️ DJ Console Avanzada inicializada');
     }
 
     async init() {
         console.log('🎛️ Inicializando DJ Console...');
-        this.createConsoleUI();
-        await this.setupAudioContext();
-        this.setupEventListeners();
-        this.loadDefaultTrack();
-        console.log('✅ DJ Console lista');
+        try {
+            this.createConsoleUI();
+            await this.setupAudioContext();
+            this.setupEventListeners();
+            this.loadDefaultTrack();
+            console.log('✅ DJ Console lista');
+        } catch (error) {
+            console.error('❌ Error inicializando DJ Console:', error);
+            throw error; // Re-lanzar para que sea capturado en el HTML
+        }
     }
 
     createConsoleUI() {
