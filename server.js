@@ -8,14 +8,17 @@ console.log('🔍 SHEET_ID_2:', process.env.SHEET_ID_2 ? '✅ CONFIGURADO' : '�
 console.log('🔍 GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY ? '✅ CONFIGURADO' : '❌ FALTANTE');
 console.log('🔍 GOOGLE_PRIVATE_KEY_2:', process.env.GOOGLE_PRIVATE_KEY_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
 
-// 🎯 CATCH ALL PARA ERRORES NO CAPTURADOS
+// 🎯 CATCH ALL PARA ERRORES NO CAPTURADOS - MEJORADO PARA NO SALIR
 process.on('uncaughtException', (error) => {
     console.error('💥 ERROR CRÍTICO NO CAPTURADO:', error);
-    process.exit(1);
+    console.error('Stack trace:', error.stack);
+    // NO SALIR - PERMITIR QUE EL SERVIDOR CONTINUE
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('💥 PROMESA RECHAZADA:', reason);
+    console.error('Promise:', promise);
+    // NO SALIR - PERMITIR QUE EL SERVIDOR CONTINUE
 });
 
 const WebSocket = require('ws');
@@ -826,11 +829,58 @@ async function initializeServer() {
     }
 }
 
-// 🔧 ESPERAR A QUE SE CARGUEN LOS POSTS ANTES DE INICIAR EL SERVIDOR
-(async () => {
-    await initializeServer();
-    console.log('✅ Posts persistentes cargados, servidor listo para conexiones');
-})();
+// 🔧 FUNCIÓN PARA INICIAR SERVIDOR
+function startServer() {
+    console.log('🚀 Iniciando servidor DJMesh...');
+
+    // Iniciar servidor
+    const PORT = process.env.PORT || 10000;
+
+    server.on('error', (error) => {
+        console.error('💥 ERROR del servidor:', error);
+        if (error.code === 'EADDRINUSE') {
+            console.log(`❌ Puerto ${PORT} ya en uso`);
+        }
+    });
+
+    server.listen(PORT, '0.0.0.0', async () => {
+        console.log(`🚀 Servidor DJMesh ejecutándose en puerto ${PORT}`);
+        console.log('🎧 Sistema de DJs ACTIVADO - Posts ilimitados para contenido musical');
+        console.log('💾 Sistema de persistencia ACTIVADO - Posts importantes se guardan en Google Sheets');
+        console.log('🎵 Playlist diaria ACTIVADA - Lista aleatoria compartida, control individual');
+        console.log('📊 Backup automático cada 3 minutos');
+        console.log('🔄 Sistema de reintentos ACTIVADO para Google Sheets');
+        console.log('🔧 Características:');
+        console.log('   - Posts generales: 1 por día, duran 24h');
+        console.log('   - Posts importantes: Persisten hasta resolución');
+        console.log('   - Colaboraciones: 30 días');
+        console.log('   - Proyectos: 60 días');
+        console.log('   - Eventos: Hasta la fecha del evento');
+        console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
+        console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
+        console.log(`🎯 Posts en memoria: ${state.posts.length} (carga persistente en progreso...)`);
+    });
+}
+
+// 🔧 INICIAR SERVIDOR INMEDIATAMENTE - NO ESPERAR INICIALIZACIONES
+console.log('🚀 Iniciando servidor inmediatamente...');
+startServer();
+
+// 🔄 INICIALIZAR SISTEMAS EN SEGUNDO PLANO (NO BLOQUEAN EL SERVIDOR)
+setTimeout(async () => {
+    console.log('🔄 Inicializando sistemas en segundo plano...');
+    
+    try {
+        // Inicializar posts persistentes
+        const persistentPosts = await postsPersistence.loadPosts();
+        const existingIds = new Set(state.posts.map(p => p.id));
+        const newPersistentPosts = persistentPosts.filter(p => !existingIds.has(p.id));
+        state.posts = [...newPersistentPosts, ...state.posts];
+        console.log(`✅ Posts persistentes cargados: ${newPersistentPosts.length}`);
+    } catch (error) {
+        console.error('⚠️ Error cargando posts persistentes:', error.message);
+    }
+}, 1000);
 
 // 🆕 BACKUP AUTOMÁTICO CADA 3 MINUTOS - MEJORADO
 setInterval(async () => {
