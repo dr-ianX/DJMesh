@@ -48,13 +48,22 @@ class DJConsole {
                 throw new Error('Elemento dj-console no encontrado en el DOM');
             }
 
+            console.log('🎛️ Creando UI de consola...');
             this.createConsoleUI();
+
+            console.log('🎛️ Configurando AudioContext...');
             await this.setupAudioContext();
+
+            console.log('🎛️ Configurando event listeners...');
             this.setupEventListeners();
-            this.loadDefaultTrack();
+
+            console.log('🎛️ Cargando track por defecto...');
+            await this.loadDefaultTrack();
+
             console.log('✅ DJ Console lista');
         } catch (error) {
             console.error('❌ Error inicializando DJ Console:', error);
+            console.error('Stack trace:', error.stack);
             throw error; // Re-lanzar para que sea capturado en el HTML
         }
     }

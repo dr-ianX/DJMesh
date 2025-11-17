@@ -104,33 +104,66 @@
         </div>
     </div>
 
-    <script src="djconsole.js"></script>
     <script>
-        // Inicializar la consola de DJ cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Consola de DJ lista para usar');
+        // 🆕 ESPERAR A QUE EL SCRIPT SE CARGE COMPLETAMENTE
+        function loadDJConsoleScript() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'djconsole.js';
+                script.onload = () => {
+                    console.log('✅ Script djconsole.js cargado');
+                    resolve();
+                };
+                script.onerror = (error) => {
+                    console.error('❌ Error cargando djconsole.js:', error);
+                    reject(error);
+                };
+                document.head.appendChild(script);
+            });
+        }
 
-            // 🆕 INTENTAR INICIALIZAR LA CONSOLA DE DJ CON RETRASO
-            setTimeout(() => {
-                try {
-                    const djConsole = new DJConsole();
-                    djConsole.init();
-                    console.log('🎛️ DJ Console inicializada correctamente');
-                } catch (error) {
-                    console.error('❌ Error inicializando DJ Console:', error);
-                    // Mostrar mensaje de error en la página
-                    const consoleDiv = document.getElementById('dj-console');
-                    if (consoleDiv) {
-                        consoleDiv.innerHTML = `
-                            <div style="color: red; text-align: center; padding: 20px;">
-                                <h3>❌ Error cargando la consola de DJ</h3>
-                                <p>Revisa la consola del navegador para más detalles.</p>
-                                <p>Error: ${error.message}</p>
-                            </div>
-                        `;
-                    }
+        // Inicializar la consola de DJ cuando TODO esté listo
+        window.addEventListener('load', async function() {
+            console.log('🎛️ Página completamente cargada, inicializando DJ Console...');
+
+            try {
+                // Esperar a que el script se cargue
+                await loadDJConsoleScript();
+
+                // Verificar que la clase existe
+                if (typeof DJConsole === 'undefined') {
+                    throw new Error('Clase DJConsole no está definida');
                 }
-            }, 1000); // Esperar 1 segundo para que se cargue el script
+
+                // Verificar que el elemento existe
+                const consoleDiv = document.getElementById('dj-console');
+                if (!consoleDiv) {
+                    throw new Error('Elemento dj-console no encontrado');
+                }
+
+                console.log('🎛️ Inicializando DJ Console...');
+                const djConsole = new DJConsole();
+                await djConsole.init();
+
+                console.log('🎛️ DJ Console inicializada correctamente');
+
+            } catch (error) {
+                console.error('❌ Error inicializando DJ Console:', error);
+                console.error('Stack trace:', error.stack);
+
+                // Mostrar mensaje de error detallado
+                const consoleDiv = document.getElementById('dj-console');
+                if (consoleDiv) {
+                    consoleDiv.innerHTML = `
+                        <div style="color: red; text-align: center; padding: 20px; background: rgba(0,0,0,0.8); border-radius: 10px;">
+                            <h3>❌ Error cargando la consola de DJ</h3>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                            <p>Revisa la consola del navegador (F12) para más detalles.</p>
+                            <p>Stack: ${error.stack ? error.stack.split('\n')[0] : 'No stack disponible'}</p>
+                        </div>
+                    `;
+                }
+            }
         });
     </script>
 </body>
