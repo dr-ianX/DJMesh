@@ -742,17 +742,17 @@ const server = http.createServer((req, res) => {
     
     // Manejar rutas de archivos estáticos
     let filePath = req.url;
-    
+
     if (filePath === '/') {
         filePath = '/index.html';
     }
-    
+
     const fullPath = path.join(__dirname, 'public', filePath);
     const extname = String(path.extname(fullPath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
 
     console.log('🔍 Buscando archivo:', fullPath);
-    
+
     fs.readFile(fullPath, (error, content) => {
         if (error) {
             if (error.code === 'ENOENT') {
@@ -766,10 +766,27 @@ const server = http.createServer((req, res) => {
             }
         } else {
             console.log('✅ Sirviendo archivo:', filePath);
-            res.writeHead(200, { 
+
+            // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES
+            const cspHeader = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' https://djmesh.onrender.com",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self'",
+                "connect-src 'self' ws: wss: https:",
+                "media-src 'self'",
+                "object-src 'none'",
+                "frame-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'"
+            ].join('; ');
+
+            res.writeHead(200, {
                 'Content-Type': contentType,
                 'Content-Length': content.length,
-                'Cache-Control': 'public, max-age=3600'
+                'Cache-Control': 'public, max-age=3600',
+                'Content-Security-Policy': cspHeader
             });
             res.end(content);
         }

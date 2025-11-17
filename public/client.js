@@ -34,11 +34,17 @@ class DJMeshClient {
     }
     
     loadUser() {
-        const savedNickname = localStorage.getItem('djmesh_nickname');
-        if (savedNickname) {
-            this.currentUser = savedNickname;
-            this.hideNicknameModal();
-        } else {
+        try {
+            const savedNickname = localStorage.getItem('djmesh_nickname');
+            if (savedNickname) {
+                this.currentUser = savedNickname;
+                this.hideNicknameModal();
+            } else {
+                this.showNicknameModal();
+            }
+        } catch (error) {
+            console.error('❌ Error accediendo a localStorage:', error);
+            // Fallback: mostrar modal sin nickname guardado
             this.showNicknameModal();
         }
     }
@@ -313,7 +319,11 @@ class DJMeshClient {
         const nickname = document.getElementById('nicknameInput').value.trim();
         if (nickname && nickname.length >= 2) {
             this.currentUser = nickname;
-            localStorage.setItem('djmesh_nickname', nickname);
+            try {
+                localStorage.setItem('djmesh_nickname', nickname);
+            } catch (error) {
+                console.error('❌ Error guardando nickname en localStorage:', error);
+            }
             this.hideNicknameModal();
             this.connect();
         } else {
