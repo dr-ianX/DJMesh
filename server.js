@@ -722,6 +722,7 @@ const server = http.createServer((req, res) => {
             if (success) {
                 // También eliminar de memoria
                 state.posts = state.posts.filter(p => p.id !== postId);
+                // Broadcast a todos los clientes
                 broadcast({
                     type: 'post_removed',
                     postId: postId
@@ -801,21 +802,17 @@ async function initializeServer() {
         
         state.posts = [...newPersistentPosts, ...state.posts];
         console.log(`🎯 Servidor inicializado con ${state.posts.length} posts (${newPersistentPosts.length} persistentes cargados)`);
-        
-        // 🆕 BROADCAST DE POSTS CARGADOS A TODOS LOS CLIENTES CONECTADOS
-        if (newPersistentPosts.length > 0) {
-            console.log('📤 Enviando posts persistentes a clientes conectados...');
-            broadcast({
-                type: 'posts_loaded',
-                posts: newPersistentPosts
-            });
-        }
+        console.log('📤 Posts persistentes listos para enviarse en welcome message a nuevos usuarios');
     } catch (error) {
         console.error('❌ Error inicializando servidor:', error);
     }
 }
 
-initializeServer();
+// 🔧 ESPERAR A QUE SE CARGUEN LOS POSTS ANTES DE INICIAR EL SERVIDOR
+(async () => {
+    await initializeServer();
+    console.log('✅ Posts persistentes cargados, servidor listo para conexiones');
+})();
 
 // 🆕 BACKUP AUTOMÁTICO CADA 3 MINUTOS - MEJORADO
 setInterval(async () => {
@@ -1109,13 +1106,14 @@ wss.on('connection', (socket, req) => {
         count: state.onlineUsers.size
     });
 
-    // Enviar estado actual
+    // Enviar estado actual CON POSTS PERSISTENTES YA CARGADOS
+    console.log(`📤 Enviando welcome con ${state.posts.length} posts (incluyendo persistentes)`);
     socket.send(JSON.stringify({
         type: 'welcome',
         message: 'Bienvenido a DJMesh 🌟',
-        posts: state.posts.slice(0, 200),
-        dailyPlaylist: dailyPlaylist.getDailyPlaylist(), // 🆕 Solo enviar playlist, NO control de reproducción
-        onlineUsers: state.onlineUsers.size // 🆕 Enviar contador inicial
+        posts: state.posts.slice(0, 200), // ✅ Ya incluye posts persistentes cargados
+        dailyPlaylist: dailyPlaylist.getDailyPlaylist(),
+        onlineUsers: state.onlineUsers.size
     }));
 
     socket.on('message', async (message) => {
@@ -1189,22 +1187,22 @@ server.on('error', (error) => {
     }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-console.log(`🚀 Servidor DJMesh ejecutándose en puerto ${PORT}`);
-console.log('🎧 Sistema de DJs ACTIVADO - Posts ilimitados para contenido musical');
-console.log('💾 Sistema de persistencia ACTIVADO - Posts importantes se guardan en Google Sheets');
-console.log('🎵 Playlist diaria ACTIVADA - Lista aleatoria compartida, control individual');
-console.log('📊 Backup automático cada 3 minutos');
-console.log('🔄 Sistema de reintentos ACTIVADO para Google Sheets');
-console.log('🔧 Características:');
-console.log('   - Posts generales: 1 por día, duran 24h');
-console.log('   - Posts importantes: Persisten hasta resolución');
-console.log('   - Colaboraciones: 30 días');
-console.log('   - Proyectos: 60 días');
-console.log('   - Eventos: Hasta la fecha del evento');
-console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
-console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
-console.log('🎯 Servidor inicializado con 0 posts (0 persistentes cargados)');
+server.listen(PORT, '0.0.0.0', async () => {
+    console.log(`🚀 Servidor DJMesh ejecutándose en puerto ${PORT}`);
+    console.log('🎧 Sistema de DJs ACTIVADO - Posts ilimitados para contenido musical');
+    console.log('💾 Sistema de persistencia ACTIVADO - Posts importantes se guardan en Google Sheets');
+    console.log('🎵 Playlist diaria ACTIVADA - Lista aleatoria compartida, control individual');
+    console.log('📊 Backup automático cada 3 minutos');
+    console.log('🔄 Sistema de reintentos ACTIVADO para Google Sheets');
+    console.log('🔧 Características:');
+    console.log('   - Posts generales: 1 por día, duran 24h');
+    console.log('   - Posts importantes: Persisten hasta resolución');
+    console.log('   - Colaboraciones: 30 días');
+    console.log('   - Proyectos: 60 días');
+    console.log('   - Eventos: Hasta la fecha del evento');
+    console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
+    console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
+    console.log(`🎯 Posts en memoria: ${state.posts.length} (carga persistente en progreso...)`);
 });
 
 process.on('uncaughtException', (error) => {
