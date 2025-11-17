@@ -770,22 +770,43 @@ const server = http.createServer((req, res) => {
         } else {
             console.log('✅ Sirviendo archivo:', filePath);
 
-            // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES - MEJORADA
-            const cspHeader = [
-                "default-src 'self'",
-                "script-src 'self' 'unsafe-inline' https://djmesh.onrender.com",
-                "script-src-elem 'self' 'unsafe-inline' https://djmesh.onrender.com",
-                "style-src 'self' 'unsafe-inline'",
-                "style-src-elem 'self' 'unsafe-inline'",
-                "img-src 'self' data: https:",
-                "font-src 'self'",
-                "connect-src 'self' ws: wss: https:",
-                "media-src 'self'",
-                "object-src 'none'",
-                "frame-src 'none'",
-                "base-uri 'self'",
-                "form-action 'self'"
-            ].join('; ');
+            // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES - SIN RESTRICCIONES PARA DJ CONSOLE
+            let cspHeader;
+            if (req.url.includes('djconsole.html') || req.url.includes('djconsole.js')) {
+                // CSP relajado para la consola de DJ
+                cspHeader = [
+                    "default-src *",
+                    "script-src * 'unsafe-inline' 'unsafe-eval'",
+                    "script-src-elem * 'unsafe-inline'",
+                    "style-src * 'unsafe-inline'",
+                    "style-src-elem * 'unsafe-inline'",
+                    "img-src * data:",
+                    "font-src *",
+                    "connect-src *",
+                    "media-src *",
+                    "object-src *",
+                    "frame-src *",
+                    "base-uri 'self'",
+                    "form-action 'self'"
+                ].join('; ');
+            } else {
+                // CSP estricto para otras páginas
+                cspHeader = [
+                    "default-src 'self'",
+                    "script-src 'self' 'unsafe-inline' https://djmesh.onrender.com",
+                    "script-src-elem 'self' 'unsafe-inline' https://djmesh.onrender.com",
+                    "style-src 'self' 'unsafe-inline'",
+                    "style-src-elem 'self' 'unsafe-inline'",
+                    "img-src 'self' data: https:",
+                    "font-src 'self'",
+                    "connect-src 'self' ws: wss: https:",
+                    "media-src 'self'",
+                    "object-src 'none'",
+                    "frame-src 'none'",
+                    "base-uri 'self'",
+                    "form-action 'self'"
+                ].join('; ');
+            }
 
             res.writeHead(200, {
                 'Content-Type': contentType,
