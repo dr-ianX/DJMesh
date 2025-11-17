@@ -8,8 +8,7 @@ class DJMeshClient {
         this.currentPost = null;
         this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia
         
-        // Hacer la consola de DJ opcional
-        this.djConsole = null;
+        // DJ Console se manejará en una pestaña separada
         this.djMode = false; // Desactivado por defecto
 
         this.init();
