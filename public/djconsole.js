@@ -43,6 +43,11 @@ class DJConsole {
     async init() {
         console.log('🎛️ Inicializando DJ Console...');
         try {
+            // 🆕 Verificar que el DOM esté listo
+            if (!document.getElementById('dj-console')) {
+                throw new Error('Elemento dj-console no encontrado en el DOM');
+            }
+
             this.createConsoleUI();
             await this.setupAudioContext();
             this.setupEventListeners();

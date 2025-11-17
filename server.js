@@ -772,20 +772,22 @@ const server = http.createServer((req, res) => {
 
             // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES - SIN RESTRICCIONES PARA DJ CONSOLE
             let cspHeader;
-            if (req.url.includes('djconsole.html') || req.url.includes('djconsole.js')) {
-                // CSP relajado para la consola de DJ
+            if (req.url.includes('djconsole')) {
+                // CSP completamente relajado para la consola de DJ - PERMITIR TODO
                 cspHeader = [
                     "default-src *",
-                    "script-src * 'unsafe-inline' 'unsafe-eval'",
-                    "script-src-elem * 'unsafe-inline'",
+                    "script-src * 'unsafe-inline' 'unsafe-eval' blob:",
+                    "script-src-elem * 'unsafe-inline' 'unsafe-eval' blob:",
                     "style-src * 'unsafe-inline'",
                     "style-src-elem * 'unsafe-inline'",
-                    "img-src * data:",
+                    "img-src * data: blob:",
                     "font-src *",
                     "connect-src *",
-                    "media-src *",
+                    "media-src * blob:",
                     "object-src *",
                     "frame-src *",
+                    "worker-src * blob:",
+                    "child-src * blob:",
                     "base-uri 'self'",
                     "form-action 'self'"
                 ].join('; ');
