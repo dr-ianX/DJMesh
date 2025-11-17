@@ -6,15 +6,17 @@ class DJMeshClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.currentPost = null;
-        this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia\n        
-        this.djConsole = new DJConsole(this); // ?? DJ Console avanzada
-        this.djMode = true;
+        this.musicPlayer = new MusicPlayer(this); // Pasamos la referencia
+        
+        // Hacer la consola de DJ opcional
+        this.djConsole = null;
+        this.djMode = false; // Desactivado por defecto
 
         this.init();
     }
 
     init() {
-        console.log('🚀 Iniciando DJMesh Client...');
+        console.log(' Iniciando DJMesh Client...');
         this.loadUser();
         this.setupEventListeners();
         this.connect();
@@ -22,11 +24,13 @@ class DJMeshClient {
         this.startVisualDecay();
         this.createDJFeatures();
         this.createDynamicBackground();
-        this.createOnlineCounter(); // 🆕 Contador de usuarios online
-        // 🎯 INICIALIZAR MUSIC PLAYER CON RETRASO PARA MÓVILES
+        this.createOnlineCounter(); //  Contador de usuarios online
+        //  INICIALIZAR MUSIC PLAYER CON RETRASO PARA MÓVILES
         setTimeout(() => {
-            this.djConsole.init();
-            console.log('🎵 Music Player inicializado para móviles');
+            if (this.musicPlayer && typeof this.musicPlayer.init === 'function') {
+                this.musicPlayer.init();
+                console.log(' Music Player inicializado para móviles');
+            }
         }, 1500);
     }
     
@@ -50,7 +54,18 @@ class DJMeshClient {
     }
     
     setupEventListeners() {
-        console.log('📝 Configurando eventos...');
+        console.log(' Configurando eventos...');
+
+        // Configurar eventos del DOM
+        
+        // Configurar botón de la consola de DJ
+        const djConsoleBtn = document.getElementById('djConsoleBtn');
+        if (djConsoleBtn) {
+            djConsoleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.open('djconsole.html', '_blank');
+            });
+        }
 
         // Nickname
         document.getElementById('saveNickname').addEventListener('click', () => this.saveUserNickname());
