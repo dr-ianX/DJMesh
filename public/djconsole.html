@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>DJMesh - Consola de DJ</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos específicos para la consola de DJ */
+        body {
+            background: #0f0c29;
+            background: -webkit-linear-gradient(to right, #24243e, #302b63, #0f0c29);
+            background: linear-gradient(to right, #24243e, #302b63, #0f0c29);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .dj-console-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(15, 15, 35, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .dj-header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+        }
+
+        .dj-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .dj-header p {
+            color: #a0a0ff;
+            font-size: 1.1em;
+        }
+
+        .back-to-feed {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .back-to-feed:hover {
+            background: rgba(0, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.2);
+        }
+
+        /* Asegurarse de que la consola no se salga de la pantalla */
+        #dj-console {
+            max-width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Estilos para móviles */
+        @media (max-width: 768px) {
+            .dj-console-container {
+                padding: 10px;
+            }
+            
+            .dj-header h1 {
+                font-size: 1.8em;
+            }
+            
+            .back-to-feed {
+                padding: 8px 16px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dj-console-container">
+        <div class="dj-header">
+            <h1>🎛️ Consola de DJ Profesional</h1>
+            <p>Mezcla y crea música en tiempo real</p>
+            <a href="index.html" class="back-to-feed">← Volver al feed principal</a>
+        </div>
+        
+        <!-- Aquí se cargará la consola de DJ -->
+        <div id="dj-console"></div>
+    </div>
+
+    <script src="djconsole.js"></script>
+    <script>
+        // Inicializar la consola de DJ cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Aquí puedes inicializar la consola de DJ
+            // Por ejemplo: 
+            // const djConsole = new DJConsole();
+            // djConsole.init();
+            
+            console.log('Consola de DJ lista para usar');
+        });
+    </script>
+</body>
+</html>

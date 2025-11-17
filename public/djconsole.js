@@ -1,53 +1,44 @@
-// 🎛️ DJ CONSOLE AVANZADA - TECHNO CONTEMPORÁNEO
-// Transformación completa del MusicPlayer en una consola profesional de DJ
+// 🎛️ DJ CONSOLE PROFESIONAL - VERSIÓN MEJORADA
+// Consola de DJ optimizada para DJMesh
 
 class DJConsole {
-    constructor(djmeshClient) {
-        this.djmeshClient = djmeshClient;
-        this.audioContext = null;
+    constructor() {
+        // Inicializar el contexto de audio
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         this.audioBuffer = null;
         this.source = null;
-        this.analyser = null;
-        this.gainNode = null;
-        this.biquadFilter = null;
-        this.convolver = null;
-        this.delayNode = null;
-        this.distortion = null;
-        this.phaser = null;
-
-        // Estado de la consola
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.gain.value = 0.8;
+        
+        // Configuración inicial
         this.isPlaying = false;
         this.currentTime = 0;
         this.duration = 0;
-        this.tempo = 1.0;
-        this.pitch = 0;
         this.volume = 0.8;
-        this.crossfader = 0.5;
-        this.crossfaderCurve = 1.0;
-
-        // EQ y filtros
-        this.eq = { low: 0, mid: 0, high: 0 };
-        this.filter = { type: 'off', frequency: 1000, Q: 1 };
-        this.killSwitches = { low: false, mid: false, high: false };
-
-        // Cue points y loops
-        this.cuePoints = new Array(8).fill(null);
-        this.loopRegion = { start: null, end: null, active: false };
-
-        // Efectos
-        this.effects = {
-            reverb: { mix: 0, decay: 2 },
-            delay: { time: 0.5, feedback: 0.3 },
-            distortion: { drive: 0 },
-            phaser: { rate: 0.5 }
-        };
-
-        // BPM y sync
         this.bpm = 128;
-        this.beatSync = false;
-
-        // UI elements
-        this.elements = {};
+        this.currentTrack = null;
+        
+        // Referencias a elementos del DOM
+        this.elements = {
+            playPauseBtn: null,
+            volumeSlider: null,
+            progressBar: null,
+            currentTimeDisplay: null,
+            durationDisplay: null,
+            trackTitle: null,
+            waveformCanvas: null,
+            fileInput: null,
+            eqLow: null,
+            eqMid: null,
+            eqHigh: null,
+            bpmDisplay: null
+        };
+        
+        // Inicializar la interfaz
+        this.initUI();
+        this.setupEventListeners();
 
         console.log('🎛️ DJ Console Avanzada inicializada');
     }

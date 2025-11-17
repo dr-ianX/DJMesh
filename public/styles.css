@@ -19,13 +19,14 @@ body {
     margin: 0 auto;
 }
 
-/* Grid Masonry */
+/* CAMBIAMOS A FLEXBOX PARA MEJOR CONTROL */
 .masonry-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 15px;
     padding: 20px;
     justify-content: center;
+    margin-bottom: 120px; /* Espacio para el botón flotante */
 }
 
 .masonry-column {
@@ -472,7 +473,36 @@ body {
 }
 
 /* 🎵 REPRODUCTOR DE AUDIO AVANZADO - ESTILO WINAMP MODERNO */
+/* Botón flotante para abrir la consola de DJ */
+.floating-dj-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    font-size: 30px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.floating-dj-btn:hover {
+    transform: scale(1.1) rotate(10deg);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* Ocultar el reproductor de música por defecto */
 .music-player {
+    display: none;
     position: fixed;
     bottom: 20px;
     left: 20px;
@@ -694,15 +724,15 @@ body {
 
 /* 🎵 PANEL DE DJs MEJORADO */
 .dj-panel {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(15px);
-    border-radius: 20px;
-    padding: 25px;
-    margin: 25px auto;
-    max-width: 900px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    background: rgba(10, 10, 20, 0.95);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    margin: 20px 0;
+    box-sizing: border-box;
 }
 
 .dj-panel h4 {
