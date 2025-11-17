@@ -16,8 +16,8 @@ class DJMeshClient {
 
     init() {
         console.log(' Iniciando DJMesh Client...');
+        this.setupEventListeners(); // Mover antes de loadUser para asegurar eventos estén listos
         this.loadUser();
-        this.setupEventListeners();
         this.connect();
         this.loadTheme();
         this.startVisualDecay();
@@ -56,7 +56,7 @@ class DJMeshClient {
         console.log(' Configurando eventos...');
 
         // Configurar eventos del DOM
-        
+
         // Configurar botón de la consola de DJ
         const djConsoleBtn = document.getElementById('djConsoleBtn');
         if (djConsoleBtn) {
@@ -66,7 +66,7 @@ class DJMeshClient {
             });
         }
 
-        // Nickname
+        // Configurar modal de nickname
         document.getElementById('saveNickname').addEventListener('click', () => this.saveUserNickname());
         document.getElementById('nicknameInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.saveUserNickname();
@@ -1070,15 +1070,19 @@ class MusicPlayer {
         this.trackStartTime = 0;
         this.currentTrackName = '';
         this.playlist = [];
-        this.userInteracted = false; // 🆕 Para controlar interacción del usuario
-        this.audioLoaded = false; // 🆕 Para saber si el audio está listo
-        this.audioContext = null; // 🆕 Para navegadores que requieren AudioContext
-        
-        // 🎯 Configurar audio para máxima compatibilidad
+        this.userInteracted = false; // Para controlar interacción del usuario
+        this.audioLoaded = false; // Para saber si el audio está listo
+        this.audioContext = null; // Para navegadores que requieren AudioContext
+        this.analyser = null; // Para visualización de audio
+        this.dataArray = null; // Buffer para datos de frecuencia
+        this.animationId = null; // ID de animación del visualizador
+        this.eventListeners = []; // Array para trackear event listeners y limpiarlos
+
+        // Configurar audio para máxima compatibilidad
         this.audio.preload = 'auto';
         this.audio.crossOrigin = 'anonymous';
-        this.audio.volume = 0.8; // 🆕 Volumen por defecto
-        
+        this.audio.volume = 0.8;
+
         console.log('🎵 Music Player inicializado - listo para móviles');
     }
 
@@ -1324,10 +1328,10 @@ class MusicPlayer {
                 console.log('📱 Primera interacción del usuario en móvil');
                 this.userInteracted = true;
                 this.hideMobileHelp();
-                
+
                 // 🎯 En móviles, precargar el audio en la primera interacción
                 this.preloadCurrentTrack();
-                
+
                 // 🆕 INTENTAR REPRODUCIR AUTOMÁTICAMENTE SI ESTÁ EN MÓVIL Y EL USUARIO INTERACTUÓ
                 if (isMobile) {
                     this.playCurrentTrack();
@@ -1339,28 +1343,28 @@ class MusicPlayer {
         if (isMobile) {
             // Mostrar ayuda para móviles
             this.showMobileHelp();
-            
-            // Agregar eventos táctiles
-            musicToggle.addEventListener('touchstart', (e) => {
+
+            // Agregar eventos táctiles con tracking para cleanup
+            this.addTrackedListener(musicToggle, 'touchstart', (e) => {
                 e.preventDefault();
                 handleFirstInteraction();
                 this.togglePlay();
             }, { passive: false });
 
-            prevTrack.addEventListener('touchstart', (e) => {
+            this.addTrackedListener(prevTrack, 'touchstart', (e) => {
                 e.preventDefault();
                 handleFirstInteraction();
                 this.prevTrack();
             }, { passive: false });
 
-            nextTrack.addEventListener('touchstart', (e) => {
+            this.addTrackedListener(nextTrack, 'touchstart', (e) => {
                 e.preventDefault();
                 handleFirstInteraction();
                 this.nextTrack();
             }, { passive: false });
 
             // 🎯 Tocar cualquier parte del player cuenta como interacción
-            playerContainer.addEventListener('touchstart', (e) => {
+            this.addTrackedListener(playerContainer, 'touchstart', (e) => {
                 if (!this.userInteracted) {
                     e.preventDefault();
                     handleFirstInteraction();
@@ -1369,17 +1373,17 @@ class MusicPlayer {
 
         } else {
             // 🎯 EVENTOS NORMALES PARA DESKTOP
-            musicToggle.addEventListener('click', () => {
+            this.addTrackedListener(musicToggle, 'click', () => {
                 handleFirstInteraction();
                 this.togglePlay();
             });
 
-            prevTrack.addEventListener('click', () => {
+            this.addTrackedListener(prevTrack, 'click', () => {
                 handleFirstInteraction();
                 this.prevTrack();
             });
 
-            nextTrack.addEventListener('click', () => {
+            this.addTrackedListener(nextTrack, 'click', () => {
                 handleFirstInteraction();
                 this.nextTrack();
             });

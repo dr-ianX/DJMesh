@@ -1,88 +1,57 @@
-# DJMesh Transformation Plan
+# DJMesh Client.js Fixes TODO
 
-## Completed Tasks
-- [x] Analyze existing codebase and create transformation plan
-- [x] Update package.json: Change name to "DJMesh", update description to DJ social network
-- [x] Update server.js: Replace composer references with DJ terminology, change post types and keywords
-- [x] Update public/index.html: Change title to "DJMesh", update welcome messages and descriptions
-- [x] Update public/styles.css: Replace composer badges with DJ-specific ones
-- [x] Update public/client.js: Transform composer tools to DJ tools, enhance MusicPlayer
-- [x] Add inbox functionality: Implement inbox system with Google Sheets persistence for private messages
-- [x] Move online counter below connection status globe
-- [x] Implement advanced DJ music player with waveform visualization and audio level bars (Winamp-style)
-- [x] Add BPM detection and harmonic mixing suggestions
-- [x] Add pitch/tempo controls, cue points, and loop functionality
-- [x] Implement audio level bars and real-time visualization
-- [x] Add mobile-optimized audio controls and touch events
-- [x] Ensure inbox system works correctly in production
-- [x] Fix Google Sheets compatibility (downgrade to v3.3.0)
-- [x] Add dynamic background that changes with music
-- [x] Implement DJ tools panel with 6 categories (mixes, tracks, collaboration, events, equipment, looking for)
-- [x] Add theme toggle (day/night mode)
-- [x] Complete responsive design for mobile devices
-- [x] Add Web Audio API integration for advanced audio processing
-- [x] Implement SACM tracking for music analytics
-- [x] Add notification system for new messages
-- [x] Create post resolution system for collaborations
-- [x] Add visual decay system for posts
-- [x] Implement masonry grid layout with smart sizing
-- [x] Add special effects for popular posts (glow, combo effects)
-- [x] Complete inbox UI with tabs and message composition
-- [x] Add message expiration (24 hours) and cleanup
-- [x] Implement Google Sheets persistence with memory fallback
-- [x] Add automatic backup system for posts
-- [x] Complete WebSocket handlers for all features
-- [x] Add error handling and mobile compatibility
-- [x] Implement audio precaching for mobile devices
-- [x] Add AudioContext fallback for browser compatibility
-- [x] Complete CSS animations and transitions
-- [x] Add accessibility features and reduced motion support
+## Critical Issues to Fix
 
-## Pending Tasks
-- [ ] Add audio upload/storage system for user-generated content
-- [ ] Add real-time collaboration features for DJ mixing sessions
-- [ ] Create events/gigs calendar system
-- [ ] Add track library organization by genres
-- [ ] Implement analytics and popularity metrics
-- [ ] Add offline mode for downloaded tracks
-- [ ] Integrate with external platforms (SoundCloud, Spotify, etc.)
+### 1. AudioContext Creation Issues
+- [ ] Consolidate AudioContext creation in one place
+- [ ] Add proper error handling for AudioContext creation
+- [ ] Ensure AudioContext is only created after user interaction on mobile
+- [ ] Fix multiple AudioContext instances being created
 
-## Audio Storage Strategy Decision
-### Current Situation
-- Audio files stored in GitHub repository (4 tracks: ~5-8MB each)
-- Limited storage (GitHub has 100MB soft limit, 1GB hard limit per repo)
-- Not scalable for user-generated content
+### 2. Memory Leaks - Event Listeners
+- [ ] Add removeEventListener calls for all event listeners
+- [ ] Implement proper cleanup in destroy methods
+- [ ] Fix touch event listeners that aren't being removed
+- [ ] Add event listener cleanup when components are destroyed
 
-### Recommended Solutions
-1. **Google Drive Integration** (Recommended for now)
-   - You already have Google Drive working with Google Sheets
-   - 15GB available storage
-   - Easy integration with existing Google APIs
-   - Can create dedicated "DJMesh Audio" folder
-   - Supports large files (up to 5TB per file)
+### 3. Mobile Touch Event Handling
+- [ ] Fix touch event listeners to prevent memory leaks
+- [ ] Add proper touch event cleanup
+- [ ] Ensure touch events work correctly on all mobile devices
+- [ ] Add passive event listeners where appropriate
 
-2. **Cloudflare R2** (Future scalable solution)
-   - Free tier: 10GB storage, 1GB egress/month
-   - Pay-as-you-go pricing after limits
-   - Global CDN for fast audio streaming
-   - Better for production scaling
+### 4. WebSocket Reconnection Logic
+- [ ] Improve reconnection strategy with exponential backoff
+- [ ] Add better error handling for connection failures
+- [ ] Implement connection state management
+- [ ] Add timeout handling for reconnection attempts
 
-3. **AWS S3** (Enterprise solution)
-   - Professional but more expensive
-   - Unlimited scalability
-   - Advanced features (transcoding, etc.)
+### 5. Audio Player Mobile Initialization
+- [ ] Delay audio initialization until user interaction
+- [ ] Fix audio loading issues on mobile browsers
+- [ ] Add proper audio context resumption
+- [ ] Ensure audio works after page reload on mobile
 
-### Implementation Plan
-- **Phase 1**: Google Drive integration for MVP
-- **Phase 2**: Migrate to Cloudflare R2 when user base grows
-- **Phase 3**: AWS S3 for enterprise features
+### 6. General Code Quality
+- [ ] Add proper error boundaries
+- [ ] Implement cleanup methods for all classes
+- [ ] Fix any remaining memory leaks
+- [ ] Add proper logging for debugging
 
-## Followup Steps
-- [x] Test WebSocket connections and real-time functionality
-- [x] Verify Google Sheets integration for inbox messages
-- [ ] Test enhanced music player with DJ features
-- [ ] Ensure responsive design works on mobile devices
-- [ ] Implement audio upload system with Google Drive
-- [ ] Add BPM detection and mixing tools
-- [ ] Create events calendar system
-- [ ] Add track library management
+## Implementation Plan
+
+1. **Phase 1**: Fix AudioContext and audio initialization issues
+2. **Phase 2**: Implement proper event listener cleanup
+3. **Phase 3**: Improve WebSocket reconnection logic
+4. **Phase 4**: Fix mobile-specific issues
+5. **Phase 5**: Add general cleanup and error handling
+6. **Phase 6**: Test all fixes thoroughly
+
+## Testing Checklist
+
+- [ ] Test on multiple mobile devices (iOS Safari, Android Chrome)
+- [ ] Test WebSocket reconnection on network interruptions
+- [ ] Test audio playback on mobile after user interaction
+- [ ] Test memory usage over time (no leaks)
+- [ ] Test touch events on mobile devices
+- [ ] Test error handling for all edge cases
