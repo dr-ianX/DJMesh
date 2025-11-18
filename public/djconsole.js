@@ -3202,6 +3202,55 @@ Deck Activo: ${this.activeDeck}
         }
     }
 
+    /**
+     * Saves cue points for the specified deck to localStorage
+     * @param {string} deck - The deck to save cue points for ('A' or 'B')
+     */
+    saveCuePoints(deck) {
+        try {
+            const deckData = deck === 'A' ? this.deckA : this.deckB;
+            if (!deckData.currentTrack) return;
+
+            const storageKey = `djmesh_cues_${deckData.currentTrack}`;
+            const cuesToSave = deckData.cuePoints.map(point => point);
+            localStorage.setItem(storageKey, JSON.stringify(cuesToSave));
+            console.log(`💾 Cue points guardados para ${deckData.currentTrack} en Deck ${deck}`);
+        } catch (error) {
+            console.error(`❌ Error guardando cue points para Deck ${deck}:`, error);
+        }
+    }
+
+    /**
+     * Loads saved cue points for the current track in the specified deck
+     * @param {string} deck - The deck to load cue points for ('A' or 'B')
+     */
+    loadCuePoints(deck) {
+        try {
+            const deckData = deck === 'A' ? this.deckA : this.deckB;
+            if (!deckData.currentTrack) return;
+
+            const storageKey = `djmesh_cues_${deckData.currentTrack}`;
+            const savedCues = localStorage.getItem(storageKey);
+            
+            if (savedCues) {
+                const parsedCues = JSON.parse(savedCues);
+                deckData.cuePoints = parsedCues.slice(0, deckData.cuePoints.length);
+                console.log(`🔄 Cue points cargados para ${deckData.currentTrack} en Deck ${deck}`);
+                
+                this.updateWaveformCues(deck);
+                
+                deckData.cuePoints.forEach((cue, index) => {
+                    const cueButton = document.getElementById(`cue${index + 1}${deck}`);
+                    if (cueButton) {
+                        cueButton.classList.toggle('active', cue !== null);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error(`❌ Error cargando cue points para Deck ${deck}:`, error);
+        }
+    }
+
     // Métodos para Deck A
     async loadTrackForDeck(deck, trackUrl) {
         try {
