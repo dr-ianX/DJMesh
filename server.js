@@ -1,12 +1,5 @@
 // 🎯 DEBUG DE EMERGENCIA - AGREGAR AL PRINCIPIO
-console.log('=== 🚨 INICIANDO SERVIDOR DE EMERGENCIA ===');
-console.log('🔍 PORT:', process.env.PORT);
-console.log('🔍 GOOGLE_SERVICE_EMAIL:', process.env.GOOGLE_SERVICE_EMAIL ? '✅ CONFIGURADO' : '❌ FALTANTE');
-console.log('🔍 GOOGLE_SERVICE_EMAIL_2:', process.env.GOOGLE_SERVICE_EMAIL_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
-console.log('🔍 SHEET_ID:', process.env.SHEET_ID ? '✅ CONFIGURADO' : '❌ FALTANTE');
-console.log('🔍 SHEET_ID_2:', process.env.SHEET_ID_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
-console.log('🔍 GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY ? '✅ CONFIGURADO' : '❌ FALTANTE');
-console.log('🔍 GOOGLE_PRIVATE_KEY_2:', process.env.GOOGLE_PRIVATE_KEY_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
+logInfo('=== 🚨 INICIANDO SERVIDOR DE EMERGENCIA ===');
 
 // 🎯 CATCH ALL PARA ERRORES NO CAPTURADOS - MEJORADO PARA NO SALIR
 process.on('uncaughtException', (error) => {
@@ -26,6 +19,75 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+
+// ============================================================================
+// 🆕 LOGGING SYSTEM
+// ============================================================================
+const LOG_LEVELS = {
+    ERROR: 0,
+    WARN: 1,
+    INFO: 2,
+    DEBUG: 3
+};
+
+const currentLogLevel = process.env.NODE_ENV === 'production' ? LOG_LEVELS.ERROR : LOG_LEVELS.DEBUG;
+
+function log(level, message, ...args) {
+    if (level <= currentLogLevel) {
+        const levelNames = ['ERROR', 'WARN', 'INFO', 'DEBUG'];
+        console.log(`[${levelNames[level]}] ${message}`, ...args);
+    }
+}
+
+function logError(message, ...args) { log(LOG_LEVELS.ERROR, message, ...args); }
+function logWarn(message, ...args) { log(LOG_LEVELS.WARN, message, ...args); }
+function logInfo(message, ...args) { log(LOG_LEVELS.INFO, message, ...args); }
+function logDebug(message, ...args) { log(LOG_LEVELS.DEBUG, message, ...args); }
+
+// ============================================================================
+// 🆕 RATE LIMITING SYSTEM
+// ============================================================================
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 requests per minute
+
+function isRateLimited(socketId) {
+    const now = Date.now();
+    const userRequests = rateLimitMap.get(socketId) || [];
+    
+    // Remove old requests outside the window
+    const validRequests = userRequests.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
+    
+    if (validRequests.length >= RATE_LIMIT_MAX_REQUESTS) {
+        return true;
+    }
+    
+    // Add current request
+    validRequests.push(now);
+    rateLimitMap.set(socketId, validRequests);
+    
+    // Clean up old entries periodically
+    setTimeout(() => {
+        const requests = rateLimitMap.get(socketId) || [];
+        const valid = requests.filter(timestamp => Date.now() - timestamp < RATE_LIMIT_WINDOW);
+        if (valid.length === 0) {
+            rateLimitMap.delete(socketId);
+        } else {
+            rateLimitMap.set(socketId, valid);
+        }
+    }, RATE_LIMIT_WINDOW);
+    
+    return false;
+}
+
+// 🆕 Log environment configuration (only in debug mode)
+logDebug('🔍 PORT:', process.env.PORT);
+logDebug('🔍 GOOGLE_SERVICE_EMAIL:', process.env.GOOGLE_SERVICE_EMAIL ? '✅ CONFIGURADO' : '❌ FALTANTE');
+logDebug('🔍 GOOGLE_SERVICE_EMAIL_2:', process.env.GOOGLE_SERVICE_EMAIL_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
+logDebug('🔍 SHEET_ID:', process.env.SHEET_ID ? '✅ CONFIGURADO' : '❌ FALTANTE');
+logDebug('🔍 SHEET_ID_2:', process.env.SHEET_ID_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
+logDebug('🔍 GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY ? '✅ CONFIGURADO' : '❌ FALTANTE');
+logDebug('🔍 GOOGLE_PRIVATE_KEY_2:', process.env.GOOGLE_PRIVATE_KEY_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
 
 // ============================================================================
 // 🆕 CLASE MEJORADA PARA PERSISTENCIA DE POSTS IMPORTANTES
@@ -754,21 +816,26 @@ const server = http.createServer((req, res) => {
     const extname = String(path.extname(fullPath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
 
-    console.log('🔍 Buscando archivo:', fullPath);
+    logDebug('🔍 Buscando archivo:', fullPath);
 
     fs.readFile(fullPath, (error, content) => {
         if (error) {
             if (error.code === 'ENOENT') {
-                console.log('❌ Archivo no encontrado:', fullPath);
+                logWarn('❌ Archivo no encontrado:', fullPath);
                 res.writeHead(404);
                 res.end('Archivo no encontrado');
             } else {
-                console.error('💥 Error del servidor:', error);
+                logError('💥 Error del servidor:', error);
                 res.writeHead(500);
                 res.end(`Error del servidor: ${error.code}`);
             }
         } else {
-            console.log('✅ Sirviendo archivo:', filePath);
+            logInfo('✅ Sirviendo archivo:', filePath);
+
+            // 🆕 CACHE HEADERS FOR STATIC FILES
+            const cacheTime = extname === '.html' ? 3600 : 86400; // 1 hour for HTML, 24 hours for others
+            res.setHeader('Cache-Control', `public, max-age=${cacheTime}`);
+            res.setHeader('ETag', `"${Date.now()}-${content.length}"`);
 
             // 🆕 CONFIGURACIÓN DE CSP PARA PERMITIR SCRIPTS LOCALES - SIN RESTRICCIONES PARA DJ CONSOLE
             let cspHeader;
@@ -1210,11 +1277,20 @@ wss.on('connection', (socket, req) => {
     }));
 
     socket.on('message', async (message) => {
+        // 🆕 RATE LIMITING CHECK
+        if (isRateLimited(socket.id || socket.remoteAddress)) {
+            socket.send(JSON.stringify({
+                type: 'error',
+                message: 'Rate limit exceeded. Please try again later.'
+            }));
+            return;
+        }
+        
         try {
             const data = JSON.parse(message);
             await handleMessage(socket, data);
         } catch (error) {
-            console.error('❌ Error procesando mensaje:', error);
+            logError('❌ Error procesando mensaje:', error);
             socket.send(JSON.stringify({
                 type: 'error',
                 message: 'Mensaje inválido'
@@ -1237,6 +1313,10 @@ wss.on('connection', (socket, req) => {
 
     socket.on('close', () => {
         console.log('👋 Usuario desconectado');
+        
+        // 🆕 CLEANUP: Remove all event listeners to prevent memory leaks
+        socket.removeAllListeners();
+        
         // 🆕 REMOVER USUARIO DE CONECTADOS
         state.onlineUsers.delete(socket);
         console.log(`👥 Usuarios online: ${state.onlineUsers.size}`);
@@ -1268,34 +1348,6 @@ process.on('SIGINT', async () => {
             process.exit(0);
         });
     });
-});
-
-// Iniciar servidor
-const PORT = process.env.PORT || 10000;
-
-server.on('error', (error) => {
-    console.error('💥 ERROR del servidor:', error);
-    if (error.code === 'EADDRINUSE') {
-        console.log(`❌ Puerto ${PORT} ya en uso`);
-    }
-});
-
-server.listen(PORT, '0.0.0.0', async () => {
-    console.log(`🚀 Servidor DJMesh ejecutándose en puerto ${PORT}`);
-    console.log('🎧 Sistema de DJs ACTIVADO - Posts ilimitados para contenido musical');
-    console.log('💾 Sistema de persistencia ACTIVADO - Posts importantes se guardan en Google Sheets');
-    console.log('🎵 Playlist diaria ACTIVADA - Lista aleatoria compartida, control individual');
-    console.log('📊 Backup automático cada 3 minutos');
-    console.log('🔄 Sistema de reintentos ACTIVADO para Google Sheets');
-    console.log('🔧 Características:');
-    console.log('   - Posts generales: 1 por día, duran 24h');
-    console.log('   - Posts importantes: Persisten hasta resolución');
-    console.log('   - Colaboraciones: 30 días');
-    console.log('   - Proyectos: 60 días');
-    console.log('   - Eventos: Hasta la fecha del evento');
-    console.log('   - Música: Playlist aleatoria diaria, control individual por usuario');
-    console.log('   - 📬 Inbox: Mensajes privados que expiran en 24 horas');
-    console.log(`🎯 Posts en memoria: ${state.posts.length} (carga persistente en progreso...)`);
 });
 
 process.on('uncaughtException', (error) => {
