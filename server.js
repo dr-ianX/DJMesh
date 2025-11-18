@@ -1,5 +1,5 @@
 // 🎯 DEBUG DE EMERGENCIA - AGREGAR AL PRINCIPIO
-logInfo('=== 🚨 INICIANDO SERVIDOR DE EMERGENCIA ===');
+// Note: Will log after logging system is initialized
 
 // 🎯 CATCH ALL PARA ERRORES NO CAPTURADOS - MEJORADO PARA NO SALIR
 process.on('uncaughtException', (error) => {
@@ -88,6 +88,9 @@ logDebug('🔍 SHEET_ID:', process.env.SHEET_ID ? '✅ CONFIGURADO' : '❌ FALTA
 logDebug('🔍 SHEET_ID_2:', process.env.SHEET_ID_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
 logDebug('🔍 GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY ? '✅ CONFIGURADO' : '❌ FALTANTE');
 logDebug('🔍 GOOGLE_PRIVATE_KEY_2:', process.env.GOOGLE_PRIVATE_KEY_2 ? '✅ CONFIGURADO' : '❌ FALTANTE');
+
+// 🆕 Now we can safely log the startup message
+logInfo('=== 🚨 INICIANDO SERVIDOR DE EMERGENCIA ===');
 
 // ============================================================================
 // 🆕 CLASE MEJORADA PARA PERSISTENCIA DE POSTS IMPORTANTES
