@@ -316,6 +316,7 @@ class DJConsole {
                 padding: 20px;
                 color: #00ffff;
                 font-family: 'Courier New', monospace;
+                font-size: 14px;
                 border: 2px solid #00ffff;
                 box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
                 margin-top: 20px;
@@ -450,8 +451,13 @@ class DJConsole {
 
             .eq-band input {
                 writing-mode: bt-lr;
-                width: 30px;
-                height: 100px;
+                width: 60px;
+                height: 150px;
+                appearance: slider-vertical;
+                background: linear-gradient(to top, #ff0000, #ffff00, #00ff00);
+                outline: none;
+                border-radius: 5px;
+                cursor: pointer;
             }
 
             .kill-btn {
@@ -547,10 +553,21 @@ class DJConsole {
                 display: block;
                 margin-bottom: 5px;
                 font-weight: bold;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
             }
 
             .effect-control input {
                 width: 100%;
+                height: 40px;
+                font-size: 14px;
+                padding: 5px;
+                border-radius: 5px;
+                border: 1px solid #00ffff;
+                background: rgba(0, 255, 255, 0.1);
+                color: #00ffff;
+                cursor: pointer;
             }
 
             .transport-controls {
@@ -877,7 +894,7 @@ class DJConsole {
     play() {
         if (!this.audioBuffer) return;
 
-        if (this.source) {
+        if (this.source && this.isPlaying) {
             this.source.stop();
         }
 
