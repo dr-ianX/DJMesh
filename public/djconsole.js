@@ -3592,59 +3592,52 @@ Deck Activo: ${this.activeDeck}
         const rect = waveform.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const percentage = x / rect.width;
-        const newTime = percentage * deckData.duration;
+        let newTime = percentage * deckData.duration;
+        const isShiftPressed = event.shiftKey;
         
-        // Actualizar tiempo actual
-        deckData.currentTime = newTime;
+        // Check if we're near a cue point (within 10px)
+        const cueIndex = this.findNearestCuePoint(deck, newTime);
+        const isNearCuePoint = cueIndex !== -1 && 
+                             Math.abs((deckData.cuePoints[cueIndex] / deckData.duration) - percentage) < (10 / rect.width);
         
-        // Si está reproduciendo, hacer seek
-        if (deckData.isPlaying && deckData.source) {
-            // 🆕 Devolver nodes al pool antes de hacer seek
-            if (deckData.gainNode) {
-                this.returnGainNode(deckData.gainNode);
+        // Shift + Click: Set/Update cue point at this position
+        if (isShiftPressed) {
+            const availableSlot = deckData.cuePoints.findIndex(cp => cp === null);
+            if (availableSlot !== -1) {
+                // Set new cue point
+                deckData.cuePoints[availableSlot] = newTime;
+                console.log(` Set cue point ${availableSlot + 1} at ${this.formatTime(newTime)}`);
+                
+                // Save to localStorage
+                this.saveCuePoints(deck);
+                
+                // Update waveform display
+                this.updateWaveformCues(deck);
+                
+                // Visual feedback
+                const cueButton = document.getElementById(`cue${availableSlot + 1}${deck}`);
+                if (cueButton) {
+                    this.flashButton(cueButton, 300);
+                    cueButton.classList.add('active');
+                }
+                
+                return; // Don't seek when setting cue points
+            } else {
+                console.log(' All cue point slots are full');
             }
-            if (deckData.analyser) {
-                this.returnAnalyser(deckData.analyser);
-            }
-            
-            // Detener source actual
-            try {
-                deckData.source.stop();
-            } catch (e) {
-                console.log('🔄 Source ya detenido durante seek');
-            }
-            
-            // 🆕 Obtener nuevos nodes del pool
-            deckData.source = this.getBufferSource();
-            deckData.source.buffer = deckData.audioBuffer;
-            deckData.source.playbackRate.value = deckData.tempo;
-            deckData.gainNode = this.getGainNode();
-            deckData.analyser = this.getAnalyser();
-            
-            // Reconectar la cadena de audio
-            deckData.source.connect(deckData.eqFilters.low);
-            deckData.eqFilters.low.connect(deckData.eqFilters.mid);
-            deckData.eqFilters.mid.connect(deckData.eqFilters.high);
-            deckData.eqFilters.high.connect(deckData.gainNode);
-            deckData.gainNode.connect(deckData.analyser);
-            
-            // 🆕 Conectar analizador de espectro
-            deckData.gainNode.connect(deckData.spectrumAnalyzer);
-            
-            this.connectDeckToMaster(deck);
-            
-            // Iniciar desde nueva posición
-            deckData.source.start(0, newTime);
         }
         
-        // Actualizar UI
-        this.updateTimeDisplay(deck);
-        this.updatePlayhead(deck);
+        // If clicking near a cue point, jump to it
+        if (isNearCuePoint && !isShiftPressed) {
+            newTime = deckData.cuePoints[cueIndex];
+            console.log(` Jumping to cue point ${cueIndex + 1} at ${this.formatTime(newTime)}`);
+        }
         
-        console.log(`🎯 Deck ${deck} seek to ${this.formatTime(newTime)}`);
+        // Use our new performSeek method
+        this.performSeek(deck, newTime);
+        console.log(` Deck ${deck} seek to ${this.formatTime(newTime)}`);
     }
 
-    // 🆕 WAVEFORM ZOOM HANDLER
     handleZoom(deck, action) {
         const deckData = deck === 'A' ? this.deckA : this.deckB;
         const zoomLevelEl = deck === 'A' ? this.elements.zoomLevelA : this.elements.zoomLevelB;
@@ -3692,7 +3685,57 @@ Deck Activo: ${this.activeDeck}
         }
     }
 
-    // 🆕 WAVEFORM WHEEL HANDLER - Scroll horizontal con zoom
+    // Update waveform with cue points visualization
+    updateWaveformCues(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const canvas = deck === 'A' ? this.elements.waveformA : this.elements.waveformB;
+        const ctx = deck === 'A' ? this.waveformCtxA : this.waveformCtxB;
+        
+        if (!canvas || !ctx || !deckData.audioBuffer) return;
+        
+        // Redraw the waveform to ensure we have a clean slate
+        this.drawWaveform(deck);
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const visibleDuration = deckData.duration / deckData.zoom.level;
+        const startTime = deckData.zoom.offset;
+        const endTime = startTime + visibleDuration;
+        
+        // Draw each cue point
+        deckData.cuePoints.forEach((cueTime, index) => {
+            if (cueTime === null || cueTime < startTime || cueTime > endTime) return;
+            
+            // Calculate position based on current zoom and offset
+            const position = ((cueTime - startTime) / visibleDuration) * width;
+            
+            // Set cue point style
+            ctx.strokeStyle = `hsl(${index * 60}, 100%, 60%)`;
+            ctx.lineWidth = 2;
+            
+            // Draw vertical line for the cue point
+            ctx.beginPath();
+            ctx.moveTo(position, 0);
+            ctx.lineTo(position, height);
+            ctx.stroke();
+            
+            // Draw a small triangle at the top
+            ctx.fillStyle = `hsl(${index * 60}, 100%, 60%)`;
+            ctx.beginPath();
+            ctx.moveTo(position - 5, 5);
+            ctx.lineTo(position + 5, 5);
+            ctx.lineTo(position, 0);
+            ctx.fill();
+            
+            // Add cue number label
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`C${index + 1}`, position, 20);
+        });
+    }
+
+    // WAVEFORM WHEEL HANDLER - Scroll horizontal con zoom
     handleWaveformWheel(deck, event) {
         event.preventDefault(); // Prevenir scroll vertical
         
@@ -4956,6 +4999,79 @@ Deck Activo: ${this.activeDeck}
         }
     }
 
+    // Perform seek to a specific time in the track
+    performSeek(deck, newTime) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (!deckData.audioBuffer) return;
+        
+        // Update current time with bounds checking
+        deckData.currentTime = Math.max(0, Math.min(newTime, deckData.duration - 0.1));
+        
+        // If playing, perform the seek
+        if (deckData.isPlaying && deckData.source) {
+            // Return nodes to pool before seeking
+            if (deckData.gainNode) this.returnGainNode(deckData.gainNode);
+            if (deckData.analyser) this.returnAnalyser(deckData.analyser);
+            
+            // Stop current source
+            try {
+                if (deckData.source) deckData.source.stop();
+            } catch (e) {
+                console.log('🔄 Source already stopped during seek');
+            }
+            
+            // Get new nodes from pool
+            deckData.source = this.getBufferSource();
+            deckData.source.buffer = deckData.audioBuffer;
+            deckData.source.playbackRate.value = deckData.tempo;
+            deckData.gainNode = this.getGainNode();
+            deckData.analyser = this.getAnalyser();
+            
+            // Reconnect audio chain
+            deckData.source.connect(deckData.eqFilters.low);
+            deckData.eqFilters.low.connect(deckData.eqFilters.mid);
+            deckData.eqFilters.mid.connect(deckData.eqFilters.high);
+            deckData.eqFilters.high.connect(deckData.gainNode);
+            deckData.gainNode.connect(deckData.analyser);
+            
+            // Connect spectrum analyzer if available
+            if (deckData.spectrumAnalyzer) {
+                deckData.gainNode.connect(deckData.spectrumAnalyzer);
+            }
+            
+            this.connectDeckToMaster(deck);
+            
+            // Start from new position
+            deckData.source.start(0, deckData.currentTime);
+        }
+        
+        // Update UI
+        this.updateTimeDisplay(deck);
+        this.updatePlayhead(deck);
+        
+        return deckData.currentTime;
+    }
+
+    // Find the nearest cue point to a given time
+    findNearestCuePoint(deck, time, threshold = 3) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        let nearestIndex = -1;
+        let minDiff = threshold; // seconds threshold
+        
+        deckData.cuePoints.forEach((cueTime, index) => {
+            if (cueTime !== null) {
+                const diff = Math.abs(cueTime - time);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    nearestIndex = index;
+                }
+            }
+        });
+        
+        return nearestIndex;
+    }
+    
     // Inicialización
     async init() {
         console.log(' Inicializando DJ Console...');
