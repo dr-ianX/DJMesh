@@ -18,7 +18,17 @@ class DJConsole {
             currentTrack: null,
             analyser: null,
             gainNode: null,
-            eq: { low: 0, mid: 0, high: 0 },
+            crossfaderGain: null,
+            eq: {
+                low: 0,
+                mid: 0,
+                high: 0
+            },
+            eqFilters: {
+                low: null,
+                mid: null,
+                high: null
+            },
             tempo: 1.0,
             cuePoints: [null, null, null, null],
             hotCues: [null, null, null, null]
@@ -36,7 +46,17 @@ class DJConsole {
             currentTrack: null,
             analyser: null,
             gainNode: null,
-            eq: { low: 0, mid: 0, high: 0 },
+            crossfaderGain: null,
+            eq: { 
+                low: 0, 
+                mid: 0, 
+                high: 0 
+            },
+            eqFilters: {
+                low: null,
+                mid: null,
+                high: null
+            },
             tempo: 1.0,
             cuePoints: [null, null, null, null],
             hotCues: [null, null, null, null]
@@ -94,7 +114,10 @@ class DJConsole {
                 <div class="deck deck-a">
                     <div class="deck-header">
                         <h3>DECK A</h3>
-                        <div class="deck-status" id="deckAStatus">STOPPED</div>
+                        <div class="deck-status-led" id="deckALed">
+                            <div class="led-indicator" id="deckALedIndicator"></div>
+                            <div class="deck-status" id="deckAStatus">STOPPED</div>
+                        </div>
                     </div>
                     
                     <div class="track-info">
@@ -108,6 +131,13 @@ class DJConsole {
                     <div class="waveform-container">
                         <canvas id="waveformA" width="400" height="150"></canvas>
                         <div class="playhead" id="playheadA"></div>
+                    </div>
+
+                    <div class="vu-meter-container">
+                        <div class="vu-meter-label">VU</div>
+                        <div class="vu-meter" id="vuMeterA">
+                            <div class="vu-meter-bar" id="vuMeterBarA"></div>
+                        </div>
                     </div>
 
                     <div class="transport-controls">
@@ -223,7 +253,10 @@ class DJConsole {
                 <div class="deck deck-b">
                     <div class="deck-header">
                         <h3>DECK B</h3>
-                        <div class="deck-status" id="deckBStatus">STOPPED</div>
+                        <div class="deck-status-led" id="deckBLed">
+                            <div class="led-indicator" id="deckBLedIndicator"></div>
+                            <div class="deck-status" id="deckBStatus">STOPPED</div>
+                        </div>
                     </div>
                     
                     <div class="track-info">
@@ -237,6 +270,13 @@ class DJConsole {
                     <div class="waveform-container">
                         <canvas id="waveformB" width="400" height="150"></canvas>
                         <div class="playhead" id="playheadB"></div>
+                    </div>
+
+                    <div class="vu-meter-container">
+                        <div class="vu-meter-label">VU</div>
+                        <div class="vu-meter" id="vuMeterB">
+                            <div class="vu-meter-bar" id="vuMeterBarB"></div>
+                        </div>
                     </div>
 
                     <div class="transport-controls">
@@ -318,6 +358,22 @@ class DJConsole {
         this.elements.trackSelectA = document.getElementById('trackSelectA');
         this.elements.loadTrackA = document.getElementById('loadTrackA');
         
+        // Deck A Status
+        this.elements.deckAStatus = document.getElementById('deckAStatus');
+        this.elements.deckALedIndicator = document.getElementById('deckALedIndicator');
+        
+        // VU Meters
+        this.elements.vuMeterA = document.getElementById('vuMeterA');
+        this.elements.vuMeterBarA = document.getElementById('vuMeterBarA');
+        this.elements.vuMeterB = document.getElementById('vuMeterB');
+        this.elements.vuMeterBarB = document.getElementById('vuMeterBarB');
+        
+        // Waveforms
+        this.elements.waveformA = document.getElementById('waveformA');
+        this.elements.waveformB = document.getElementById('waveformB');
+        this.elements.playheadA = document.getElementById('playheadA');
+        this.elements.playheadB = document.getElementById('playheadB');
+        
         // Transport controls Deck A
         this.elements.playA = document.getElementById('playA');
         this.elements.pauseA = document.getElementById('pauseA');
@@ -341,6 +397,10 @@ class DJConsole {
         this.elements.volumeDisplayB = document.getElementById('volumeDisplayB');
         this.elements.trackSelectB = document.getElementById('trackSelectB');
         this.elements.loadTrackB = document.getElementById('loadTrackB');
+        
+        // Deck B Status
+        this.elements.deckBStatus = document.getElementById('deckBStatus');
+        this.elements.deckBLedIndicator = document.getElementById('deckBLedIndicator');
         
         // Transport controls Deck B
         this.elements.playB = document.getElementById('playB');
@@ -417,6 +477,40 @@ class DJConsole {
                 color: #00ff80;
             }
 
+            .deck-status-led {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .led-indicator {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: #ff0000;
+                border: 2px solid #333;
+                box-shadow: 0 0 5px rgba(255,0,0,0.5);
+                transition: all 0.3s ease;
+            }
+
+            .led-indicator.playing {
+                background: #00ff00;
+                border-color: #00ff00;
+                box-shadow: 0 0 10px rgba(0,255,0,0.8);
+                animation: ledPulse 1s infinite;
+            }
+
+            .led-indicator.paused {
+                background: #ffff00;
+                border-color: #ffff00;
+                box-shadow: 0 0 8px rgba(255,255,0,0.6);
+            }
+
+            @keyframes ledPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+
             .deck-status {
                 padding: 5px 10px;
                 border-radius: 3px;
@@ -474,6 +568,42 @@ class DJConsole {
                 height: 100%;
                 background: #ffff00;
                 pointer-events: none;
+            }
+
+            .vu-meter-container {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 5px;
+                background: rgba(0,0,0,0.3);
+                border-radius: 5px;
+                margin: 5px 0;
+            }
+
+            .vu-meter-label {
+                font-size: 10px;
+                font-weight: bold;
+                color: #00ff00;
+                width: 20px;
+                text-align: center;
+            }
+
+            .vu-meter {
+                flex: 1;
+                height: 8px;
+                background: rgba(0,0,0,0.5);
+                border: 1px solid #333;
+                border-radius: 4px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .vu-meter-bar {
+                height: 100%;
+                width: 0%;
+                background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+                transition: width 0.1s ease;
+                border-radius: 3px;
             }
 
             .transport-controls {
@@ -1007,6 +1137,14 @@ class DJConsole {
             }
         }
 
+        // Waveform click listeners para seek
+        if (this.elements.waveformA) {
+            this.elements.waveformA.addEventListener('click', (e) => this.handleWaveformClick('A', e));
+        }
+        if (this.elements.waveformB) {
+            this.elements.waveformB.addEventListener('click', (e) => this.handleWaveformClick('B', e));
+        }
+
         console.log('✅ Event listeners configurados para 2 decks');
     }
 
@@ -1111,8 +1249,11 @@ class DJConsole {
         // Aplicar tempo
         deckData.source.playbackRate.value = deckData.tempo;
         
-        // Conectar nodes con crossfader
-        deckData.source.connect(deckData.gainNode);
+        // Conectar nodes con EQ y crossfader
+        deckData.source.connect(deckData.eqFilters.low);
+        deckData.eqFilters.low.connect(deckData.eqFilters.mid);
+        deckData.eqFilters.mid.connect(deckData.eqFilters.high);
+        deckData.eqFilters.high.connect(deckData.gainNode);
         deckData.gainNode.connect(deckData.analyser);
         
         // Conectar al master crossfader
@@ -1123,13 +1264,7 @@ class DJConsole {
         deckData.isPlaying = true;
         
         // Actualizar UI
-        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
-        if (statusEl) {
-            statusEl.textContent = 'PLAYING';
-            statusEl.style.background = 'rgba(0,255,0,0.3)';
-            statusEl.style.borderColor = '#00ff00';
-            statusEl.style.color = '#00ff00';
-        }
+        this.updateDeckStatus(deck, 'PLAYING', 'playing');
         
         // Iniciar animación
         this.animateDeck(deck);
@@ -1151,13 +1286,7 @@ class DJConsole {
         this.stopBeatMatching(deck);
 
         // Actualizar UI
-        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
-        if (statusEl) {
-            statusEl.textContent = 'PAUSED';
-            statusEl.style.background = 'rgba(255,255,0,0.2)';
-            statusEl.style.borderColor = '#ffff00';
-            statusEl.style.color = '#ffff00';
-        }
+        this.updateDeckStatus(deck, 'PAUSED', 'paused');
         
         console.log(`⏸️ Deck ${deck} paused`);
     }
@@ -1176,13 +1305,7 @@ class DJConsole {
         this.stopBeatMatching(deck);
 
         // Actualizar UI
-        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
-        if (statusEl) {
-            statusEl.textContent = 'STOPPED';
-            statusEl.style.background = 'rgba(255,0,0,0.2)';
-            statusEl.style.borderColor = '#ff0000';
-            statusEl.style.color = '#ff0000';
-        }
+        this.updateDeckStatus(deck, 'STOPPED', 'stopped');
         
         this.updateTimeDisplay(deck);
         this.updatePlayhead(deck);
@@ -1246,6 +1369,49 @@ class DJConsole {
         }
     }
 
+    handleWaveformClick(deck, event) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (!deckData.audioBuffer || !deckData.duration) return;
+        
+        const waveform = event.currentTarget;
+        const rect = waveform.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const percentage = x / rect.width;
+        const newTime = percentage * deckData.duration;
+        
+        // Actualizar tiempo actual
+        deckData.currentTime = newTime;
+        
+        // Si está reproduciendo, hacer seek
+        if (deckData.isPlaying && deckData.source) {
+            // Detener source actual
+            deckData.source.stop();
+            
+            // Crear nuevo source desde la nueva posición
+            deckData.source = this.audioContext.createBufferSource();
+            deckData.source.buffer = deckData.audioBuffer;
+            deckData.source.playbackRate.value = deckData.tempo;
+            
+            // Reconectar la cadena de audio
+            deckData.source.connect(deckData.eqFilters.low);
+            deckData.eqFilters.low.connect(deckData.eqFilters.mid);
+            deckData.eqFilters.mid.connect(deckData.eqFilters.high);
+            deckData.eqFilters.high.connect(deckData.gainNode);
+            deckData.gainNode.connect(deckData.analyser);
+            this.connectDeckToMaster(deck);
+            
+            // Iniciar desde nueva posición
+            deckData.source.start(0, newTime);
+        }
+        
+        // Actualizar UI
+        this.updateTimeDisplay(deck);
+        this.updatePlayhead(deck);
+        
+        console.log(`🎯 Deck ${deck} seek to ${this.formatTime(newTime)}`);
+    }
+
     updateVUMeters(deck) {
         const deckData = deck === 'A' ? this.deckA : this.deckB;
         
@@ -1254,15 +1420,17 @@ class DJConsole {
         const dataArray = new Uint8Array(deckData.analyser.frequencyBinCount);
         deckData.analyser.getByteFrequencyData(dataArray);
         
+        // Calcular promedio de frecuencias para VU meter
         const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
         const normalized = average / 255;
         
-        // Actualizar VU meters si existen
-        const vuMeter = deck === 'A' ? 'vuMeterA' : 'vuMeterB';
-        const vuBar = document.getElementById(vuMeter);
+        // Actualizar VU meters con los elementos correctos
+        const vuBar = deck === 'A' ? this.elements.vuMeterBarA : this.elements.vuMeterBarB;
         if (vuBar) {
-            const height = normalized * 100;
-            vuBar.style.setProperty('--vu-height', `${height}%`);
+            // Convertir a porcentaje y aplicar logaritmo para mejor respuesta visual
+            const dbLevel = 20 * Math.log10(normalized + 0.001); // Evitar log(0)
+            const percentage = Math.max(0, Math.min(100, (dbLevel + 60) * 100 / 60));
+            vuBar.style.width = `${percentage}%`;
         }
     }
 
@@ -1270,6 +1438,49 @@ class DJConsole {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    drawWaveform(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const canvas = deck === 'A' ? this.elements.waveformA : this.elements.waveformB;
+        const ctx = deck === 'A' ? this.waveformCtxA : this.waveformCtxB;
+        
+        if (!canvas || !ctx || !deckData.audioBuffer) return;
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const data = deckData.audioBuffer.getChannelData(0);
+        
+        // Limpiar canvas
+        ctx.clearRect(0, 0, width, height);
+        
+        // Dibujar waveform
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#00ffff';
+        ctx.beginPath();
+        
+        const sliceWidth = width / data.length;
+        let x = 0;
+        
+        for (let i = 0; i < data.length; i++) {
+            const v = data[i];
+            const y = (v + 1) * height / 2;
+            
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+            
+            x += sliceWidth;
+        }
+        
+        ctx.stroke();
+        
+        // Dibujar línea de posición actual
+        this.updatePlayhead(deck);
+        
+        console.log(`🎨 Waveform dibujado para Deck ${deck}`);
     }
 
     detectBPM(deck) {
@@ -1397,6 +1608,17 @@ class DJConsole {
         const deckData = deck === 'A' ? this.deckA : this.deckB;
         console.log(`🎛️ EQ ${deck}:`, deckData.eq);
         
+        // Aplicar valores a los filtros de audio
+        if (deckData.eqFilters.low) {
+            deckData.eqFilters.low.gain.value = deckData.eq.low;
+        }
+        if (deckData.eqFilters.mid) {
+            deckData.eqFilters.mid.gain.value = deckData.eq.mid;
+        }
+        if (deckData.eqFilters.high) {
+            deckData.eqFilters.high.gain.value = deckData.eq.high;
+        }
+        
         // Actualizar sliders y displays
         if (deck === 'A') {
             if (this.elements.eqLowA) {
@@ -1431,8 +1653,6 @@ class DJConsole {
                 if (valueEl) valueEl.textContent = deckData.eq.high.toFixed(0);
             }
         }
-        
-        // TODO: Implementar EQ real con Web Audio API filters
     }
 
     updateTempo(deck) {
@@ -1448,6 +1668,41 @@ class DJConsole {
         const tempoDisplay = deck === 'A' ? this.elements.tempoDisplayA : this.elements.tempoDisplayB;
         if (tempoDisplay) {
             tempoDisplay.textContent = `${(deckData.tempo * 100).toFixed(0)}%`;
+        }
+    }
+
+    updateDeckStatus(deck, statusText, ledClass) {
+        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
+        const ledEl = deck === 'A' ? this.elements.deckALedIndicator : this.elements.deckBLedIndicator;
+        
+        if (statusEl) {
+            statusEl.textContent = statusText;
+            
+            // Actualizar colores según estado
+            statusEl.className = 'deck-status'; // Reset classes
+            ledEl.className = 'led-indicator'; // Reset classes
+            
+            switch(statusText) {
+                case 'PLAYING':
+                    statusEl.style.background = 'rgba(0,255,0,0.3)';
+                    statusEl.style.borderColor = '#00ff00';
+                    statusEl.style.color = '#00ff00';
+                    ledEl.classList.add('playing');
+                    break;
+                case 'PAUSED':
+                    statusEl.style.background = 'rgba(255,255,0,0.2)';
+                    statusEl.style.borderColor = '#ffff00';
+                    statusEl.style.color = '#ffff00';
+                    ledEl.classList.add('paused');
+                    break;
+                case 'STOPPED':
+                default:
+                    statusEl.style.background = 'rgba(255,0,0,0.2)';
+                    statusEl.style.borderColor = '#ff0000';
+                    statusEl.style.color = '#ff0000';
+                    // LED rojo es el estado por defecto
+                    break;
+            }
         }
     }
 
@@ -1684,6 +1939,34 @@ class DJConsole {
         // Crear gain nodes para cada deck (para crossfader)
         this.deckA.crossfaderGain = this.audioContext.createGain();
         this.deckB.crossfaderGain = this.audioContext.createGain();
+        
+        // Crear filtros EQ para Deck A
+        this.deckA.eqFilters.low = this.audioContext.createBiquadFilter();
+        this.deckA.eqFilters.low.type = 'lowshelf';
+        this.deckA.eqFilters.low.frequency.value = 320;
+        
+        this.deckA.eqFilters.mid = this.audioContext.createBiquadFilter();
+        this.deckA.eqFilters.mid.type = 'peaking';
+        this.deckA.eqFilters.mid.frequency.value = 1000;
+        this.deckA.eqFilters.mid.Q.value = 0.5;
+        
+        this.deckA.eqFilters.high = this.audioContext.createBiquadFilter();
+        this.deckA.eqFilters.high.type = 'highshelf';
+        this.deckA.eqFilters.high.frequency.value = 3200;
+        
+        // Crear filtros EQ para Deck B
+        this.deckB.eqFilters.low = this.audioContext.createBiquadFilter();
+        this.deckB.eqFilters.low.type = 'lowshelf';
+        this.deckB.eqFilters.low.frequency.value = 320;
+        
+        this.deckB.eqFilters.mid = this.audioContext.createBiquadFilter();
+        this.deckB.eqFilters.mid.type = 'peaking';
+        this.deckB.eqFilters.mid.frequency.value = 1000;
+        this.deckB.eqFilters.mid.Q.value = 0.5;
+        
+        this.deckB.eqFilters.high = this.audioContext.createBiquadFilter();
+        this.deckB.eqFilters.high.type = 'highshelf';
+        this.deckB.eqFilters.high.frequency.value = 3200;
         
         // Conectar crossfader gains al master
         this.deckA.crossfaderGain.connect(this.masterGainNode);
