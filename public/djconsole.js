@@ -309,19 +309,16 @@ class DJConsole {
         style.textContent = `
             /* 🎛️ DJ CONSOLE TECHNO CONTEMPORÁNEO */
             .dj-console {
-                position: fixed;
-                bottom: 20px;
-                left: 20px;
-                right: 20px;
+                position: relative;
+                width: 100%;
                 background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 25%, #0d1b2a 50%, #1b263b 75%, #0a0a0a 100%);
-                border: 2px solid #00ffff;
                 border-radius: 15px;
                 padding: 20px;
-                z-index: 999;
-                box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
-                font-family: 'Courier New', monospace;
                 color: #00ffff;
-                backdrop-filter: blur(20px);
+                font-family: 'Courier New', monospace;
+                border: 2px solid #00ffff;
+                box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+                margin-top: 20px;
             }
 
             .console-screen {
