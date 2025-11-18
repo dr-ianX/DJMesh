@@ -139,6 +139,11 @@ class DJConsole {
                         <label>TEMPO: <span id="tempoDisplayA">100%</span></label>
                         <input type="range" id="tempoA" min="50" max="200" value="100" class="tempo-slider">
                     </div>
+                    
+                    <div class="volume-section">
+                        <label>VOLUME: <span id="volumeDisplayA">80%</span></label>
+                        <input type="range" id="volumeA" min="0" max="100" value="80" class="volume-slider">
+                    </div>
 
                     <div class="cue-points">
                         <button id="cue1A" class="btn-cue-point">CUE1</button>
@@ -263,6 +268,11 @@ class DJConsole {
                         <label>TEMPO: <span id="tempoDisplayB">100%</span></label>
                         <input type="range" id="tempoB" min="50" max="200" value="100" class="tempo-slider">
                     </div>
+                    
+                    <div class="volume-section">
+                        <label>VOLUME: <span id="volumeDisplayB">80%</span></label>
+                        <input type="range" id="volumeB" min="0" max="100" value="80" class="volume-slider">
+                    </div>
 
                     <div class="cue-points">
                         <button id="cue1B" class="btn-cue-point">CUE1</button>
@@ -303,8 +313,16 @@ class DJConsole {
         this.elements.eqHighA = document.getElementById('eqHighA');
         this.elements.tempoA = document.getElementById('tempoA');
         this.elements.tempoDisplayA = document.getElementById('tempoDisplayA');
+        this.elements.volumeA = document.getElementById('volumeA');
+        this.elements.volumeDisplayA = document.getElementById('volumeDisplayA');
         this.elements.trackSelectA = document.getElementById('trackSelectA');
         this.elements.loadTrackA = document.getElementById('loadTrackA');
+        
+        // Transport controls Deck A
+        this.elements.playA = document.getElementById('playA');
+        this.elements.pauseA = document.getElementById('pauseA');
+        this.elements.stopA = document.getElementById('stopA');
+        this.elements.cueA = document.getElementById('cueA');
 
         // Deck B
         this.elements.trackNameB = document.getElementById('trackNameB');
@@ -319,8 +337,16 @@ class DJConsole {
         this.elements.eqHighB = document.getElementById('eqHighB');
         this.elements.tempoB = document.getElementById('tempoB');
         this.elements.tempoDisplayB = document.getElementById('tempoDisplayB');
+        this.elements.volumeB = document.getElementById('volumeB');
+        this.elements.volumeDisplayB = document.getElementById('volumeDisplayB');
         this.elements.trackSelectB = document.getElementById('trackSelectB');
         this.elements.loadTrackB = document.getElementById('loadTrackB');
+        
+        // Transport controls Deck B
+        this.elements.playB = document.getElementById('playB');
+        this.elements.pauseB = document.getElementById('pauseB');
+        this.elements.stopB = document.getElementById('stopB');
+        this.elements.cueB = document.getElementById('cueB');
 
         // Master
         this.elements.crossfader = document.getElementById('crossfader');
@@ -515,6 +541,16 @@ class DJConsole {
                 background: linear-gradient(to right, #ff0000, #ffff00, #00ff00);
                 outline: none;
                 border-radius: 4px;
+            }
+
+            .volume-section {
+                text-align: center;
+            }
+
+            .volume-section label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 5px;
             }
 
             .cue-points {
@@ -805,7 +841,10 @@ class DJConsole {
     setupEventListeners() {
         // Transport Deck A
         if (this.elements.playA) {
+            console.log('✅ Configurando event listener para playA');
             this.elements.playA.addEventListener('click', () => this.playDeckA());
+        } else {
+            console.log('❌ Elemento playA no encontrado');
         }
         if (this.elements.pauseA) {
             this.elements.pauseA.addEventListener('click', () => this.pauseDeckA());
@@ -819,7 +858,10 @@ class DJConsole {
 
         // Transport Deck B
         if (this.elements.playB) {
+            console.log('✅ Configurando event listener para playB');
             this.elements.playB.addEventListener('click', () => this.playDeckB());
+        } else {
+            console.log('❌ Elemento playB no encontrado');
         }
         if (this.elements.pauseB) {
             this.elements.pauseB.addEventListener('click', () => this.pauseDeckB());
@@ -884,6 +926,22 @@ class DJConsole {
             this.elements.tempoB.addEventListener('input', (e) => {
                 this.deckB.tempo = parseFloat(e.target.value) / 100;
                 this.updateTempo('B');
+            });
+        }
+        
+        // Volume Deck A
+        if (this.elements.volumeA) {
+            this.elements.volumeA.addEventListener('input', (e) => {
+                this.deckA.volume = parseFloat(e.target.value) / 100;
+                this.updateVolume('A');
+            });
+        }
+        
+        // Volume Deck B
+        if (this.elements.volumeB) {
+            this.elements.volumeB.addEventListener('input', (e) => {
+                this.deckB.volume = parseFloat(e.target.value) / 100;
+                this.updateVolume('B');
             });
         }
 
@@ -1001,6 +1059,7 @@ class DJConsole {
     }
 
     playDeckA() {
+        console.log('🎵 playDeckA llamado');
         this.playDeck('A');
     }
 
@@ -1017,6 +1076,7 @@ class DJConsole {
     }
 
     playDeckB() {
+        console.log('🎵 playDeckB llamado');
         this.playDeck('B');
     }
 
@@ -1033,8 +1093,12 @@ class DJConsole {
     }
 
     playDeck(deck) {
+        console.log(`🎵 playDeck llamado para Deck ${deck}`);
         const deckData = deck === 'A' ? this.deckA : this.deckB;
-        if (!deckData.audioBuffer || deckData.isPlaying) return;
+        if (!deckData.audioBuffer || deckData.isPlaying) {
+            console.log(`❌ No se puede reproducir Deck ${deck}: audioBuffer=${!!deckData.audioBuffer}, isPlaying=${deckData.isPlaying}`);
+            return;
+        }
 
         // Crear nuevo source
         deckData.source = this.audioContext.createBufferSource();
@@ -1333,17 +1397,42 @@ class DJConsole {
         const deckData = deck === 'A' ? this.deckA : this.deckB;
         console.log(`🎛️ EQ ${deck}:`, deckData.eq);
         
-        // Aquí implementaríamos EQ real con filters
-        // Por ahora solo actualizamos los displays
+        // Actualizar sliders y displays
         if (deck === 'A') {
-            if (this.elements.eqLowA) this.elements.eqLowA.textContent = deckData.eq.low;
-            if (this.elements.eqMidA) this.elements.eqMidA.textContent = deckData.eq.mid;
-            if (this.elements.eqHighA) this.elements.eqHighA.textContent = deckData.eq.high;
+            if (this.elements.eqLowA) {
+                this.elements.eqLowA.value = deckData.eq.low;
+                const valueEl = document.getElementById('eqLowValueA');
+                if (valueEl) valueEl.textContent = deckData.eq.low.toFixed(0);
+            }
+            if (this.elements.eqMidA) {
+                this.elements.eqMidA.value = deckData.eq.mid;
+                const valueEl = document.getElementById('eqMidValueA');
+                if (valueEl) valueEl.textContent = deckData.eq.mid.toFixed(0);
+            }
+            if (this.elements.eqHighA) {
+                this.elements.eqHighA.value = deckData.eq.high;
+                const valueEl = document.getElementById('eqHighValueA');
+                if (valueEl) valueEl.textContent = deckData.eq.high.toFixed(0);
+            }
         } else {
-            if (this.elements.eqLowB) this.elements.eqLowB.textContent = deckData.eq.low;
-            if (this.elements.eqMidB) this.elements.eqMidB.textContent = deckData.eq.mid;
-            if (this.elements.eqHighB) this.elements.eqHighB.textContent = deckData.eq.high;
+            if (this.elements.eqLowB) {
+                this.elements.eqLowB.value = deckData.eq.low;
+                const valueEl = document.getElementById('eqLowValueB');
+                if (valueEl) valueEl.textContent = deckData.eq.low.toFixed(0);
+            }
+            if (this.elements.eqMidB) {
+                this.elements.eqMidB.value = deckData.eq.mid;
+                const valueEl = document.getElementById('eqMidValueB');
+                if (valueEl) valueEl.textContent = deckData.eq.mid.toFixed(0);
+            }
+            if (this.elements.eqHighB) {
+                this.elements.eqHighB.value = deckData.eq.high;
+                const valueEl = document.getElementById('eqHighValueB');
+                if (valueEl) valueEl.textContent = deckData.eq.high.toFixed(0);
+            }
         }
+        
+        // TODO: Implementar EQ real con Web Audio API filters
     }
 
     updateTempo(deck) {
@@ -1360,6 +1449,25 @@ class DJConsole {
         if (tempoDisplay) {
             tempoDisplay.textContent = `${(deckData.tempo * 100).toFixed(0)}%`;
         }
+    }
+
+    updateVolume(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        console.log(`🎛️ Volume ${deck}: ${deckData.volume}`);
+        
+        // Aplicar volumen al deck gain node
+        if (deckData.gainNode) {
+            deckData.gainNode.gain.value = deckData.volume;
+        }
+        
+        // Actualizar display
+        const volumeDisplay = deck === 'A' ? this.elements.volumeDisplayA : this.elements.volumeDisplayB;
+        if (volumeDisplay) {
+            volumeDisplay.textContent = `${Math.round(deckData.volume * 100)}%`;
+        }
+        
+        // Actualizar crossfader para aplicar el nuevo volumen
+        this.updateCrossfader();
     }
 
     syncBPM(sourceDeck, targetDeck) {
@@ -1605,6 +1713,12 @@ class DJConsole {
         }
         
         console.log('✅ DJ Console inicializado');
+        
+        // Cargar tracks automáticamente para demostración
+        setTimeout(() => {
+            this.loadTrackForDeck('A', '/Music/track1.mp3');
+            this.loadTrackForDeck('B', '/Music/mereconozco.mp3');
+        }, 1000);
     }
 }
 
