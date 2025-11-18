@@ -125,8 +125,30 @@ class DJConsole {
             reverb: { mix: 0, decay: 2 },
             delay: { time: 0.5, feedback: 0.3 },
             distortion: { drive: 0 },
-            phaser: { rate: 0.5 }
+            phaser: { rate: 0.5, depth: 0.5 },
+            gate: { threshold: 0.5, ratio: 4, attack: 0.01, release: 0.1 }
         };
+        
+        // 🆕 Web Audio API Effect Nodes
+        this.effectNodes = {
+            reverb: null,
+            delay: null,
+            filter: null,
+            distortion: null,
+            phaser: null,
+            gate: null
+        };
+        
+        // Effect bypass states
+        this.effectBypass = {
+            reverb: true,
+            delay: true,
+            filter: true,
+            distortion: true,
+            phaser: true,
+            gate: true
+        };
+        
         this.crossfader = 0.5;
         this.crossfaderCurve = 1;
         this.tempo = 1.0;
@@ -325,6 +347,138 @@ class DJConsole {
                                 <option value="smooth">Smooth</option>
                             </select>
                             <canvas id="curvePreview" width="120" height="60" class="curve-preview"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 🆕 SECCIÓN DE EFECTOS PROFESIONALES -->
+                    <div class="effects-section">
+                        <label class="effects-title">🎛️ DJ EFFECTS</label>
+                        
+                        <!-- Reverb -->
+                        <div class="effect-control">
+                            <label class="effect-label">REVERB</label>
+                            <div class="effect-knobs">
+                                <div class="knob-container">
+                                    <input type="range" id="reverbMix" min="0" max="100" value="0" class="effect-knob">
+                                    <span class="knob-label">MIX</span>
+                                    <span class="knob-value" id="reverbMixValue">0%</span>
+                                </div>
+                                <div class="knob-container">
+                                    <input type="range" id="reverbDecay" min="0.1" max="10" step="0.1" value="2" class="effect-knob">
+                                    <span class="knob-label">DECAY</span>
+                                    <span class="knob-value" id="reverbDecayValue">2.0s</span>
+                                </div>
+                            </div>
+                            <button id="reverbBypass" class="effect-bypass-btn">OFF</button>
+                        </div>
+
+                        <!-- Delay -->
+                        <div class="effect-control">
+                            <label class="effect-label">DELAY</label>
+                            <div class="effect-knobs">
+                                <div class="knob-container">
+                                    <input type="range" id="delayTime" min="0.01" max="2" step="0.01" value="0.5" class="effect-knob">
+                                    <span class="knob-label">TIME</span>
+                                    <span class="knob-value" id="delayTimeValue">0.5s</span>
+                                </div>
+                                <div class="knob-container">
+                                    <input type="range" id="delayFeedback" min="0" max="95" value="30" class="effect-knob">
+                                    <span class="knob-label">FEED</span>
+                                    <span class="knob-value" id="delayFeedbackValue">30%</span>
+                                </div>
+                            </div>
+                            <button id="delayBypass" class="effect-bypass-btn">OFF</button>
+                        </div>
+
+                        <!-- Filter -->
+                        <div class="effect-control">
+                            <label class="effect-label">FILTER</label>
+                            <div class="effect-knobs">
+                                <div class="knob-container">
+                                    <select id="filterType" class="filter-select">
+                                        <option value="off">OFF</option>
+                                        <option value="lowpass">LOWPASS</option>
+                                        <option value="highpass">HIGHPASS</option>
+                                        <option value="bandpass">BANDPASS</option>
+                                    </select>
+                                </div>
+                                <div class="knob-container">
+                                    <input type="range" id="filterFreq" min="20" max="20000" value="1000" class="effect-knob">
+                                    <span class="knob-label">FREQ</span>
+                                    <span class="knob-value" id="filterFreqValue">1kHz</span>
+                                </div>
+                                <div class="knob-container">
+                                    <input type="range" id="filterQ" min="0.1" max="30" value="1" class="effect-knob">
+                                    <span class="knob-label">Q</span>
+                                    <span class="knob-value" id="filterQValue">1.0</span>
+                                </div>
+                            </div>
+                            <button id="filterBypass" class="effect-bypass-btn">OFF</button>
+                        </div>
+
+                        <!-- Distortion -->
+                        <div class="effect-control">
+                            <label class="effect-label">DISTORTION</label>
+                            <div class="effect-knobs">
+                                <div class="knob-container">
+                                    <input type="range" id="distortionDrive" min="0" max="100" value="0" class="effect-knob">
+                                    <span class="knob-label">DRIVE</span>
+                                    <span class="knob-value" id="distortionDriveValue">0</span>
+                                </div>
+                            </div>
+                            <button id="distortionBypass" class="effect-bypass-btn">OFF</button>
+                        </div>
+
+                        <!-- Phaser -->
+                        <div class="effect-control">
+                            <label class="effect-label">PHASER</label>
+                            <div class="effect-knobs">
+                                <div class="knob-container">
+                                    <input type="range" id="phaserRate" min="0.1" max="10" step="0.1" value="0.5" class="effect-knob">
+                                    <span class="knob-label">RATE</span>
+                                    <span class="knob-value" id="phaserRateValue">0.5Hz</span>
+                                </div>
+                                <div class="knob-container">
+                                    <input type="range" id="phaserDepth" min="0" max="100" value="50" class="effect-knob">
+                                    <span class="knob-label">DEPTH</span>
+                                    <span class="knob-value" id="phaserDepthValue">50%</span>
+                                </div>
+                            </div>
+                            <button id="phaserBypass" class="effect-bypass-btn">OFF</button>
+                        </div>
+
+                        <!-- Gate Effect -->
+                        <div class="effect-control">
+                            <h4>🚪 GATE</h4>
+                            <div class="effect-params">
+                                <div class="param">
+                                    <label>Threshold</label>
+                                    <input type="range" id="gateThreshold" min="0" max="1" step="0.01" value="0.5" class="effect-slider">
+                                    <span id="gateThresholdValue">0.5</span>
+                                </div>
+                                <div class="param">
+                                    <label>Ratio</label>
+                                    <input type="range" id="gateRatio" min="1" max="20" step="0.5" value="4" class="effect-slider">
+                                    <span id="gateRatioValue">4:1</span>
+                                </div>
+                                <div class="param">
+                                    <label>Attack</label>
+                                    <input type="range" id="gateAttack" min="0.001" max="0.1" step="0.001" value="0.01" class="effect-slider">
+                                    <span id="gateAttackValue">10ms</span>
+                                </div>
+                                <div class="param">
+                                    <label>Release</label>
+                                    <input type="range" id="gateRelease" min="0.01" max="1" step="0.01" value="0.1" class="effect-slider">
+                                    <span id="gateReleaseValue">100ms</span>
+                                </div>
+                            </div>
+                            <button id="gateBypass" class="effect-bypass-btn">OFF</button>
+                        </div>
+
+                        <!-- Master Effects Controls -->
+                        <div class="master-effects-controls">
+                            <button id="effectsReset" class="effects-reset-btn">RESET ALL</button>
+                            <button id="effectsPreset" class="effects-preset-btn">PRESETS</button>
                         </div>
                     </div>
 
@@ -567,6 +721,36 @@ class DJConsole {
         this.elements.masterVolume = document.getElementById('masterVolume');
         this.elements.masterVolumeDisplay = document.getElementById('masterVolumeDisplay');
         this.elements.masterBpm = document.getElementById('masterBpm');
+
+        // 🎛️ DJ Effects Elements
+        this.elements.reverbMix = document.getElementById('reverbMix');
+        this.elements.reverbDecay = document.getElementById('reverbDecay');
+        this.elements.reverbBypass = document.getElementById('reverbBypass');
+        
+        this.elements.delayTime = document.getElementById('delayTime');
+        this.elements.delayFeedback = document.getElementById('delayFeedback');
+        this.elements.delayBypass = document.getElementById('delayBypass');
+        
+        this.elements.filterType = document.getElementById('filterType');
+        this.elements.filterFreq = document.getElementById('filterFreq');
+        this.elements.filterQ = document.getElementById('filterQ');
+        this.elements.filterBypass = document.getElementById('filterBypass');
+        
+        this.elements.distortionDrive = document.getElementById('distortionDrive');
+        this.elements.distortionBypass = document.getElementById('distortionBypass');
+        
+        this.elements.phaserRate = document.getElementById('phaserRate');
+        this.elements.phaserDepth = document.getElementById('phaserDepth');
+        this.elements.phaserBypass = document.getElementById('phaserBypass');
+        
+        this.elements.gateThreshold = document.getElementById('gateThreshold');
+        this.elements.gateRatio = document.getElementById('gateRatio');
+        this.elements.gateAttack = document.getElementById('gateAttack');
+        this.elements.gateRelease = document.getElementById('gateRelease');
+        this.elements.gateBypass = document.getElementById('gateBypass');
+        
+        this.elements.effectsReset = document.getElementById('effectsReset');
+        this.elements.effectsPreset = document.getElementById('effectsPreset');
 
         console.log('✅ Elementos cacheados para 2 decks');
     }
@@ -1053,6 +1237,199 @@ class DJConsole {
                 background: rgba(0,0,0,0.9);
             }
 
+            /* 🎛️ STYLES FOR DJ EFFECTS */
+            .effects-section {
+                background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(255, 0, 255, 0.1));
+                border: 2px solid rgba(255, 0, 255, 0.3);
+                border-radius: 8px;
+                padding: 15px;
+                margin: 10px 0;
+                box-shadow: 0 0 20px rgba(255, 0, 255, 0.2);
+            }
+
+            .effects-title {
+                display: block;
+                text-align: center;
+                font-size: 14px;
+                font-weight: bold;
+                color: #ff00ff;
+                margin-bottom: 15px;
+                text-shadow: 0 0 10px #ff00ff;
+                letter-spacing: 2px;
+            }
+
+            .effect-control {
+                background: rgba(0, 0, 0, 0.7);
+                border: 1px solid rgba(255, 0, 255, 0.5);
+                border-radius: 6px;
+                padding: 10px;
+                margin: 8px 0;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                transition: all 0.3s ease;
+            }
+
+            .effect-control:hover {
+                background: rgba(255, 0, 255, 0.1);
+                border-color: #ff00ff;
+                box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+            }
+
+            .effect-label {
+                min-width: 80px;
+                font-size: 11px;
+                font-weight: bold;
+                color: #ff00ff;
+                text-align: center;
+                letter-spacing: 1px;
+            }
+
+            .effect-knobs {
+                flex: 1;
+                display: flex;
+                gap: 8px;
+                justify-content: center;
+            }
+
+            .knob-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-width: 60px;
+            }
+
+            .effect-knob {
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                background: radial-gradient(circle, #333, #000);
+                border: 2px solid #ff00ff;
+                outline: none;
+                -webkit-appearance: none;
+                cursor: pointer;
+                position: relative;
+                box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+            }
+
+            .effect-knob::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #ff00ff, #8a2be2);
+                border: 2px solid #fff;
+                cursor: pointer;
+                box-shadow: 0 0 10px #ff00ff;
+                position: relative;
+                top: -10px;
+            }
+
+            .effect-knob::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #ff00ff, #8a2be2);
+                border: 2px solid #fff;
+                cursor: pointer;
+                box-shadow: 0 0 10px #ff00ff;
+                position: relative;
+            }
+
+            .knob-label {
+                font-size: 9px;
+                color: #ff00ff;
+                margin-top: 5px;
+                font-weight: bold;
+                letter-spacing: 0.5px;
+            }
+
+            .knob-value {
+                font-size: 8px;
+                color: #8a2be2;
+                margin-top: 2px;
+                font-family: monospace;
+            }
+
+            .filter-select {
+                width: 100%;
+                padding: 5px;
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid #ff00ff;
+                border-radius: 4px;
+                color: #ff00ff;
+                font-size: 10px;
+                font-family: monospace;
+                outline: none;
+                cursor: pointer;
+            }
+
+            .filter-select:hover {
+                background: rgba(255, 0, 255, 0.1);
+            }
+
+            .filter-select option {
+                background: #000;
+                color: #ff00ff;
+            }
+
+            .effect-bypass-btn {
+                min-width: 40px;
+                height: 30px;
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid #ff00ff;
+                border-radius: 4px;
+                color: #666;
+                font-size: 10px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+            }
+
+            .effect-bypass-btn.active {
+                background: linear-gradient(135deg, #ff00ff, #8a2be2);
+                color: #fff;
+                border-color: #fff;
+                box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+
+            .master-effects-controls {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                margin-top: 15px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(255, 0, 255, 0.3);
+            }
+
+            .effects-reset-btn, .effects-preset-btn {
+                padding: 8px 16px;
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid #ff00ff;
+                border-radius: 4px;
+                color: #ff00ff;
+                font-size: 10px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .effects-reset-btn:hover, .effects-preset-btn:hover {
+                background: rgba(255, 0, 255, 0.2);
+                border-color: #fff;
+                color: #fff;
+                box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+            }
+
             .bpm-sync-section {
                 text-align: center;
                 padding: 10px;
@@ -1530,7 +1907,640 @@ class DJConsole {
             this.elements.zoomResetB.addEventListener('click', () => this.handleZoom('B', 'reset'));
         }
 
+        // 🆕 DJ EFFECTS EVENT LISTENERS
+        this.setupEffectsEventListeners();
+
         console.log('✅ Event listeners configurados para 2 decks');
+    }
+
+    // 🎛️ DJ EFFECTS EVENT LISTENERS
+    setupEffectsEventListeners() {
+        console.log('🎛️ Setting up DJ Effects event listeners...');
+        
+        // Reverb Controls
+        if (this.elements.reverbMix) {
+            this.elements.reverbMix.addEventListener('input', (e) => {
+                this.effects.reverb.mix = e.target.value / 100;
+                this.updateReverb();
+                document.getElementById('reverbMixValue').textContent = `${e.target.value}%`;
+            });
+        }
+        
+        if (this.elements.reverbDecay) {
+            this.elements.reverbDecay.addEventListener('input', (e) => {
+                this.effects.reverb.decay = parseFloat(e.target.value);
+                this.updateReverb();
+                document.getElementById('reverbDecayValue').textContent = `${e.target.value}s`;
+            });
+        }
+        
+        if (this.elements.reverbBypass) {
+            this.elements.reverbBypass.addEventListener('click', (e) => {
+                this.effectBypass.reverb = !this.effectBypass.reverb;
+                e.target.textContent = this.effectBypass.reverb ? 'OFF' : 'ON';
+                e.target.classList.toggle('active', !this.effectBypass.reverb);
+                this.updateEffectsRouting();
+            });
+        }
+        
+        // Delay Controls
+        if (this.elements.delayTime) {
+            this.elements.delayTime.addEventListener('input', (e) => {
+                this.effects.delay.time = parseFloat(e.target.value);
+                this.updateDelay();
+                document.getElementById('delayTimeValue').textContent = `${e.target.value}s`;
+            });
+        }
+        
+        if (this.elements.delayFeedback) {
+            this.elements.delayFeedback.addEventListener('input', (e) => {
+                this.effects.delay.feedback = e.target.value / 100;
+                this.updateDelay();
+                document.getElementById('delayFeedbackValue').textContent = `${e.target.value}%`;
+            });
+        }
+        
+        if (this.elements.delayBypass) {
+            this.elements.delayBypass.addEventListener('click', (e) => {
+                this.effectBypass.delay = !this.effectBypass.delay;
+                e.target.textContent = this.effectBypass.delay ? 'OFF' : 'ON';
+                e.target.classList.toggle('active', !this.effectBypass.delay);
+                this.updateEffectsRouting();
+            });
+        }
+        
+        // Filter Controls
+        if (this.elements.filterType) {
+            this.elements.filterType.addEventListener('change', (e) => {
+                this.filter.type = e.target.value;
+                this.updateFilter();
+            });
+        }
+        
+        if (this.elements.filterFreq) {
+            this.elements.filterFreq.addEventListener('input', (e) => {
+                this.filter.frequency = parseInt(e.target.value);
+                this.updateFilter();
+                const freqDisplay = this.filter.frequency >= 1000 ? 
+                    `${(this.filter.frequency / 1000).toFixed(1)}kHz` : 
+                    `${this.filter.frequency}Hz`;
+                document.getElementById('filterFreqValue').textContent = freqDisplay;
+            });
+        }
+        
+        if (this.elements.filterQ) {
+            this.elements.filterQ.addEventListener('input', (e) => {
+                this.filter.Q = parseFloat(e.target.value);
+                this.updateFilter();
+                document.getElementById('filterQValue').textContent = e.target.value;
+            });
+        }
+        
+        if (this.elements.filterBypass) {
+            this.elements.filterBypass.addEventListener('click', (e) => {
+                this.effectBypass.filter = !this.effectBypass.filter;
+                e.target.textContent = this.effectBypass.filter ? 'OFF' : 'ON';
+                e.target.classList.toggle('active', !this.effectBypass.filter);
+                this.updateEffectsRouting();
+            });
+        }
+        
+        // Distortion Controls
+        if (this.elements.distortionDrive) {
+            this.elements.distortionDrive.addEventListener('input', (e) => {
+                this.effects.distortion.drive = parseInt(e.target.value);
+                this.updateDistortion();
+                document.getElementById('distortionDriveValue').textContent = e.target.value;
+            });
+        }
+        
+        if (this.elements.distortionBypass) {
+            this.elements.distortionBypass.addEventListener('click', (e) => {
+                this.effectBypass.distortion = !this.effectBypass.distortion;
+                e.target.textContent = this.effectBypass.distortion ? 'OFF' : 'ON';
+                e.target.classList.toggle('active', !this.effectBypass.distortion);
+                this.updateEffectsRouting();
+            });
+        }
+        
+        // Phaser Controls
+        if (this.elements.phaserRate) {
+            this.elements.phaserRate.addEventListener('input', (e) => {
+                this.effects.phaser.rate = parseFloat(e.target.value);
+                this.updatePhaser();
+                document.getElementById('phaserRateValue').textContent = `${e.target.value}Hz`;
+            });
+        }
+        
+        if (this.elements.phaserDepth) {
+            this.elements.phaserDepth.addEventListener('input', (e) => {
+                this.effects.phaser.depth = e.target.value / 100;
+                this.updatePhaser();
+                document.getElementById('phaserDepthValue').textContent = `${e.target.value}%`;
+            });
+        }
+        
+        if (this.elements.phaserBypass) {
+            this.elements.phaserBypass.addEventListener('click', (e) => {
+                this.effectBypass.phaser = !this.effectBypass.phaser;
+                e.target.textContent = this.effectBypass.phaser ? 'OFF' : 'ON';
+                e.target.classList.toggle('active', !this.effectBypass.phaser);
+                this.updateEffectsRouting();
+            });
+        }
+        
+        // Gate Effect Controls
+        if (this.elements.gateThreshold) {
+            this.elements.gateThreshold.addEventListener('input', (e) => {
+                this.effects.gate.threshold = parseFloat(e.target.value);
+                this.updateGate();
+                document.getElementById('gateThresholdValue').textContent = e.target.value;
+            });
+        }
+        
+        if (this.elements.gateRatio) {
+            this.elements.gateRatio.addEventListener('input', (e) => {
+                this.effects.gate.ratio = parseFloat(e.target.value);
+                this.updateGate();
+                document.getElementById('gateRatioValue').textContent = e.target.value + ':1';
+            });
+        }
+        
+        if (this.elements.gateAttack) {
+            this.elements.gateAttack.addEventListener('input', (e) => {
+                this.effects.gate.attack = parseFloat(e.target.value);
+                this.updateGate();
+                document.getElementById('gateAttackValue').textContent = (e.target.value * 1000).toFixed(0) + 'ms';
+            });
+        }
+        
+        if (this.elements.gateRelease) {
+            this.elements.gateRelease.addEventListener('input', (e) => {
+                this.effects.gate.release = parseFloat(e.target.value);
+                this.updateGate();
+                document.getElementById('gateReleaseValue').textContent = (e.target.value * 1000).toFixed(0) + 'ms';
+            });
+        }
+        
+        if (this.elements.gateBypass) {
+            this.elements.gateBypass.addEventListener('click', (e) => {
+                this.effectBypass.gate = !this.effectBypass.gate;
+                e.target.textContent = this.effectBypass.gate ? 'OFF' : 'ON';
+                e.target.classList.toggle('active', !this.effectBypass.gate);
+                this.updateEffectsRouting();
+            });
+        }
+        
+        // Master Effects Controls
+        if (this.elements.effectsReset) {
+            this.elements.effectsReset.addEventListener('click', () => {
+                this.resetAllEffects();
+            });
+        }
+        
+        if (this.elements.effectsPreset) {
+            this.elements.effectsPreset.addEventListener('click', () => {
+                this.showEffectsPresets();
+            });
+        }
+        
+        console.log('✅ DJ Effects event listeners configured');
+    }
+
+    // 🎛️ DJ EFFECTS UPDATE METHODS
+    updateReverb() {
+        const reverb = this.effectNodes.reverb;
+        reverb.wetGain.gain.value = this.effects.reverb.mix;
+        reverb.dryGain.gain.value = 1 - this.effects.reverb.mix;
+        
+        // Recreate impulse response if decay changed
+        if (reverb.convolver.buffer) {
+            this.setupReverb();
+        }
+    }
+    
+    updateDelay() {
+        const delay = this.effectNodes.delay;
+        delay.delay.delayTime.value = this.effects.delay.time;
+        delay.feedback.gain.value = this.effects.delay.feedback;
+    }
+    
+    updateFilter() {
+        const filter = this.effectNodes.filter;
+        
+        if (this.filter.type === 'off') {
+            filter.filter.type = 'allpass';
+            filter.filter.frequency.value = 22050; // Bypass
+        } else {
+            filter.filter.type = this.filter.type;
+            filter.filter.frequency.value = this.filter.frequency;
+            filter.filter.Q.value = this.filter.Q;
+        }
+    }
+    
+    updateDistortion() {
+        const distortion = this.effectNodes.distortion;
+        
+        // Recreate distortion curve
+        const samples = 44100;
+        const curve = new Float32Array(samples);
+        const deg = Math.PI / 180;
+        
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            curve[i] = ((3 + this.effects.distortion.drive) * x * 20 * deg) / (Math.PI + this.effects.distortion.drive * Math.abs(x));
+        }
+        
+        distortion.waveshaper.curve = curve;
+    }
+    
+    updatePhaser() {
+        const phaser = this.effectNodes.phaser;
+        phaser.lfo.frequency.value = this.effects.phaser.rate;
+        phaser.lfoGain.gain.value = this.effects.phaser.depth * 1000;
+    }
+    
+    updateGate() {
+        const gate = this.effectNodes.gate;
+        gate.envelope.threshold.value = this.effects.gate.threshold;
+        gate.envelope.ratio.value = this.effects.gate.ratio;
+        gate.envelope.attack.value = this.effects.gate.attack;
+        gate.envelope.release.value = this.effects.gate.release;
+    }
+    
+    // 🎛️ DJ EFFECTS ROUTING SYSTEM
+    updateEffectsRouting() {
+        // This method will be called when tracks are loaded or effects are toggled
+        // Implementation will be added in the next step
+        console.log('🎛️ Effects routing updated');
+    }
+    
+    resetAllEffects() {
+        console.log('🔄 Resetting all DJ Effects...');
+        
+        // Reset all effect parameters to defaults
+        this.effects.reverb = { mix: 0, decay: 2 };
+        this.effects.delay = { time: 0.5, feedback: 0.3 };
+        this.effects.distortion = { drive: 0 };
+        this.effects.phaser = { rate: 0.5, depth: 0.5 };
+        this.effects.gate = { threshold: 0.5, ratio: 4, attack: 0.01, release: 0.1 };
+        this.filter = { type: 'off', frequency: 1000, Q: 1 };
+        
+        // Reset bypass states
+        Object.keys(this.effectBypass).forEach(effect => {
+            this.effectBypass[effect] = true;
+        });
+        
+        // Update UI
+        this.updateEffectsUI();
+        
+        // Update effects
+        this.updateReverb();
+        this.updateDelay();
+        this.updateFilter();
+        this.updateDistortion();
+        this.updatePhaser();
+        
+        console.log('✅ All effects reset to defaults');
+    }
+    
+    updateEffectsUI() {
+        // Update Reverb UI
+        if (this.elements.reverbMix) {
+            this.elements.reverbMix.value = this.effects.reverb.mix * 100;
+            document.getElementById('reverbMixValue').textContent = `${Math.round(this.effects.reverb.mix * 100)}%`;
+        }
+        if (this.elements.reverbDecay) {
+            this.elements.reverbDecay.value = this.effects.reverb.decay;
+            document.getElementById('reverbDecayValue').textContent = `${this.effects.reverb.decay}s`;
+        }
+        
+        // Update Delay UI
+        if (this.elements.delayTime) {
+            this.elements.delayTime.value = this.effects.delay.time;
+            document.getElementById('delayTimeValue').textContent = `${this.effects.delay.time}s`;
+        }
+        if (this.elements.delayFeedback) {
+            this.elements.delayFeedback.value = this.effects.delay.feedback * 100;
+            document.getElementById('delayFeedbackValue').textContent = `${Math.round(this.effects.delay.feedback * 100)}%`;
+        }
+        
+        // Update Filter UI
+        if (this.elements.filterType) {
+            this.elements.filterType.value = this.filter.type;
+        }
+        if (this.elements.filterFreq) {
+            this.elements.filterFreq.value = this.filter.frequency;
+            const freqDisplay = this.filter.frequency >= 1000 ? 
+                `${(this.filter.frequency / 1000).toFixed(1)}kHz` : 
+                `${this.filter.frequency}Hz`;
+            document.getElementById('filterFreqValue').textContent = freqDisplay;
+        }
+        if (this.elements.filterQ) {
+            this.elements.filterQ.value = this.filter.Q;
+            document.getElementById('filterQValue').textContent = this.filter.Q.toFixed(1);
+        }
+        
+        // Update Distortion UI
+        if (this.elements.distortionDrive) {
+            this.elements.distortionDrive.value = this.effects.distortion.drive;
+            document.getElementById('distortionDriveValue').textContent = this.effects.distortion.drive;
+        }
+        
+        // Update Phaser UI
+        if (this.elements.phaserRate) {
+            this.elements.phaserRate.value = this.effects.phaser.rate;
+            document.getElementById('phaserRateValue').textContent = `${this.effects.phaser.rate}Hz`;
+        }
+        if (this.elements.phaserDepth) {
+            this.elements.phaserDepth.value = this.effects.phaser.depth * 100;
+            document.getElementById('phaserDepthValue').textContent = `${Math.round(this.effects.phaser.depth * 100)}%`;
+        }
+        
+        // Update Gate UI
+        if (this.elements.gateThreshold) {
+            this.elements.gateThreshold.value = this.effects.gate.threshold;
+            document.getElementById('gateThresholdValue').textContent = this.effects.gate.threshold;
+        }
+        if (this.elements.gateRatio) {
+            this.elements.gateRatio.value = this.effects.gate.ratio;
+            document.getElementById('gateRatioValue').textContent = `${this.effects.gate.ratio}:1`;
+        }
+        if (this.elements.gateAttack) {
+            this.elements.gateAttack.value = this.effects.gate.attack;
+            document.getElementById('gateAttackValue').textContent = `${(this.effects.gate.attack * 1000).toFixed(0)}ms`;
+        }
+        if (this.elements.gateRelease) {
+            this.elements.gateRelease.value = this.effects.gate.release;
+            document.getElementById('gateReleaseValue').textContent = `${(this.effects.gate.release * 1000).toFixed(0)}ms`;
+        }
+        
+        // Update bypass buttons
+        Object.keys(this.effectBypass).forEach(effect => {
+            const button = document.getElementById(`${effect}Bypass`);
+            if (button) {
+                button.textContent = this.effectBypass[effect] ? 'OFF' : 'ON';
+                button.classList.toggle('active', !this.effectBypass[effect]);
+            }
+        });
+    }
+    
+    showEffectsPresets() {
+        console.log('🎛️ Showing effects presets...');
+        
+        const presets = [
+            {
+                name: 'Club Echo',
+                settings: {
+                    reverb: { mix: 20, decay: 3 },
+                    delay: { time: 0.25, feedback: 40 },
+                    filter: { type: 'lowpass', frequency: 8000, Q: 1 },
+                    distortion: { drive: 0 },
+                    phaser: { rate: 0.3, depth: 30 },
+                    gate: { threshold: 0.6, ratio: 3, attack: 0.01, release: 0.1 }
+                }
+            },
+            {
+                name: 'Industrial',
+                settings: {
+                    reverb: { mix: 10, decay: 1.5 },
+                    delay: { time: 0.125, feedback: 20 },
+                    filter: { type: 'highpass', frequency: 500, Q: 2 },
+                    distortion: { drive: 50 },
+                    phaser: { rate: 0.8, depth: 60 },
+                    gate: { threshold: 0.3, ratio: 8, attack: 0.005, release: 0.05 }
+                }
+            },
+            {
+                name: 'Space Dub',
+                settings: {
+                    reverb: { mix: 40, decay: 5 },
+                    delay: { time: 0.75, feedback: 60 },
+                    filter: { type: 'lowpass', frequency: 2000, Q: 0.5 },
+                    distortion: { drive: 10 },
+                    phaser: { rate: 0.2, depth: 80 },
+                    gate: { threshold: 0.7, ratio: 2, attack: 0.02, release: 0.2 }
+                }
+            }
+        ];
+        
+        // Create preset selection UI
+        const presetHtml = presets.map((preset, index) => 
+            `<button class="preset-btn" data-preset="${index}">${preset.name}</button>`
+        ).join('');
+        
+        // Show preset modal or dropdown (simplified for now)
+        console.log('Available presets:', presets.map(p => p.name));
+        
+        // Apply preset on click (this would be connected to UI)
+        window.applyEffectsPreset = (presetIndex) => {
+            const preset = presets[presetIndex];
+            if (preset) {
+                this.applyEffectsPreset(preset);
+            }
+        };
+    }
+    
+    applyEffectsPreset(preset) {
+        console.log(`🎛️ Applying preset: ${preset.name}`);
+        
+        // Apply preset settings
+        Object.assign(this.effects, preset.settings);
+        Object.assign(this.filter, preset.settings.filter);
+        
+        // Update all effects
+        this.updateReverb();
+        this.updateDelay();
+        this.updateFilter();
+        this.updateDistortion();
+        this.updatePhaser();
+        
+        // Update UI
+        this.updateEffectsUI();
+        
+        console.log(`✅ Preset "${preset.name}" applied`);
+    }
+
+    // 🎛️ DJ EFFECTS ROUTING IMPLEMENTATION
+    setupDeckEffectsRouting(deck) {
+        console.log(`🎛️ Setting up effects routing for Deck ${deck}...`);
+        
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        // Disconnect existing routing if any
+        if (deckData.source) {
+            try {
+                deckData.source.disconnect();
+            } catch (e) {
+                // Source might already be disconnected
+            }
+        }
+        
+        // Create new audio source
+        deckData.source = this.audioContext.createBufferSource();
+        deckData.source.buffer = deckData.audioBuffer;
+        deckData.source.loop = true;
+        
+        // Create effects chain nodes
+        deckData.effectsChain = {
+            input: this.audioContext.createGain(),
+            preEffectsGain: this.audioContext.createGain(),
+            effectsOutput: this.audioContext.createGain()
+        };
+        
+        // Set initial gains
+        deckData.effectsChain.input.gain.value = 1;
+        deckData.effectsChain.preEffectsGain.gain.value = 1;
+        deckData.effectsChain.effectsOutput.gain.value = 1;
+        
+        // Connect the routing chain
+        this.updateEffectsRouting(deck);
+        
+        console.log(`✅ Effects routing setup complete for Deck ${deck}`);
+    }
+    
+    updateEffectsRouting(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (!deckData.source || !deckData.effectsChain) return;
+        
+        console.log(`🎛️ Updating effects routing for Deck ${deck}...`);
+        
+        // Disconnect all existing connections
+        try {
+            deckData.source.disconnect();
+            deckData.effectsChain.input.disconnect();
+            deckData.effectsChain.preEffectsGain.disconnect();
+            deckData.effectsChain.effectsOutput.disconnect();
+            
+            // Disconnect all effects
+            Object.values(this.effectNodes).forEach(effect => {
+                if (effect && typeof effect === 'object') {
+                    Object.values(effect).forEach(node => {
+                        if (node && node.disconnect) {
+                            try {
+                                node.disconnect();
+                            } catch (e) {
+                                // Node already disconnected
+                            }
+                        }
+                    });
+                }
+            });
+        } catch (e) {
+            // Ignore disconnection errors
+        }
+        
+        // Build the effects chain based on active effects
+        let currentNode = deckData.effectsChain.input;
+        let lastNode = currentNode;
+        
+        // Filter (if active)
+        if (!this.effectBypass.filter && this.filter.type !== 'off') {
+            lastNode = this.effectNodes.filter.filter;
+            currentNode.connect(lastNode);
+            currentNode = lastNode;
+        }
+        
+        // Distortion (if active)
+        if (!this.effectBypass.distortion && this.effects.distortion.drive > 0) {
+            lastNode = this.effectNodes.distortion.waveshaper;
+            currentNode.connect(lastNode);
+            currentNode = lastNode;
+        }
+        
+        // Delay (if active)
+        if (!this.effectBypass.delay && this.effects.delay.feedback > 0) {
+            // Delay needs special routing for feedback
+            const delay = this.effectNodes.delay;
+            
+            // Wet path
+            currentNode.connect(delay.delay);
+            delay.delay.connect(delay.feedback);
+            delay.feedback.connect(delay.delay);
+            delay.delay.connect(delay.wetGain);
+            
+            // Dry path (direct)
+            currentNode.connect(delay.dryGain);
+            
+            // Mix wet and dry
+            delay.wetGain.connect(delay.output);
+            delay.dryGain.connect(delay.output);
+            
+            currentNode = delay.output;
+        }
+        
+        // Reverb (if active)
+        if (!this.effectBypass.reverb && this.effects.reverb.mix > 0) {
+            const reverb = this.effectNodes.reverb;
+            
+            // Wet path
+            currentNode.connect(reverb.convolver);
+            reverb.convolver.connect(reverb.wetGain);
+            
+            // Dry path (direct)
+            deckData.effectsChain.input.connect(reverb.dryGain);
+            
+            // Mix wet and dry
+            reverb.wetGain.connect(reverb.output);
+            reverb.dryGain.connect(reverb.output);
+            
+            currentNode = reverb.output;
+        }
+        
+        // Phaser (if active)
+        if (!this.effectBypass.phaser && this.effects.phaser.depth > 0) {
+            const phaser = this.effectNodes.phaser;
+            
+            // Connect LFO to filter frequency
+            phaser.lfo.connect(phaser.lfoGain);
+            phaser.lfoGain.connect(phaser.filter.frequency);
+            
+            // Connect audio through phaser filter
+            currentNode.connect(phaser.filter);
+            phaser.filter.connect(phaser.feedback);
+            phaser.feedback.connect(phaser.filter);
+            phaser.filter.connect(phaser.output);
+            
+            currentNode = phaser.output;
+        }
+        
+        // Gate (if active)
+        if (!this.effectBypass.gate && this.effects.gate.threshold < 1) {
+            const gate = this.effectNodes.gate;
+            
+            // Connect audio through gate
+            currentNode.connect(gate.follower);
+            gate.follower.connect(gate.envelope);
+            gate.envelope.connect(gate.gainReduction);
+            gate.gainReduction.connect(gate.output);
+            
+            currentNode = gate.output;
+        }
+        
+        // Connect final output to deck's effects chain
+        if (currentNode !== deckData.effectsChain.input) {
+            currentNode.connect(deckData.effectsChain.effectsOutput);
+        } else {
+            // No effects active, connect directly
+            deckData.effectsChain.input.connect(deckData.effectsChain.effectsOutput);
+        }
+        
+        // Connect to deck's existing routing (EQ, crossfader, etc.)
+        this.connectDeckToMaster(deck);
+        
+        console.log(`✅ Effects routing updated for Deck ${deck}`);
+    }
+    
+    connectDeckToMaster(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (!deckData.effectsChain) return;
+        
+        // Connect effects output to deck's EQ and existing routing
+        deckData.effectsChain.effectsOutput.connect(deckData.eqNodes.low);
+        
+        console.log(`✅ Deck ${deck} connected to master routing`);
     }
 
     // 🆕 DESTROY METHOD - Cleanup de recursos
@@ -2235,6 +3245,9 @@ Deck Activo: ${this.activeDeck}
             
             // 🆕 Inicializar curva de EQ
             this.drawEQCurve(deck);
+            
+            // 🎛️ Setup effects routing for this deck
+            this.setupDeckEffectsRouting(deck);
 
             console.log(`✅ Track cargado en Deck ${deck}: ${trackNames[trackName] || trackName}`);
         } catch (error) {
@@ -3076,6 +4089,160 @@ Deck Activo: ${this.activeDeck}
         console.log(`🎛️ Crossfader (${this.crossfaderCurve}): A=${gainA.toFixed(2)}, B=${gainB.toFixed(2)}`);
     }
 
+    // 🎛️ DJ EFFECTS INITIALIZATION
+    initializeEffects() {
+        console.log('🎛️ Initializing DJ Effects...');
+        
+        // Create Reverb using ConvolverNode
+        this.effectNodes.reverb = {
+            convolver: this.audioContext.createConvolver(),
+            wetGain: this.audioContext.createGain(),
+            dryGain: this.audioContext.createGain(),
+            output: this.audioContext.createGain()
+        };
+        
+        // Create Delay
+        this.effectNodes.delay = {
+            delay: this.audioContext.createDelay(2.0),
+            feedback: this.audioContext.createGain(),
+            wetGain: this.audioContext.createGain(),
+            dryGain: this.audioContext.createGain(),
+            output: this.audioContext.createGain()
+        };
+        
+        // Create Filter
+        this.effectNodes.filter = {
+            filter: this.audioContext.createBiquadFilter(),
+            output: this.audioContext.createGain()
+        };
+        
+        // Create Distortion using WaveShaper
+        this.effectNodes.distortion = {
+            waveshaper: this.audioContext.createWaveShaper(),
+            output: this.audioContext.createGain()
+        };
+        
+        // Create Phaser
+        this.effectNodes.phaser = {
+            lfo: this.audioContext.createOscillator(),
+            lfoGain: this.audioContext.createGain(),
+            filter: this.audioContext.createBiquadFilter(),
+            feedback: this.audioContext.createGain(),
+            output: this.audioContext.createGain()
+        };
+        
+        // Create Gate
+        this.effectNodes.gate = {
+            follower: this.audioContext.createGain(),
+            envelope: this.audioContext.createDynamicsCompressor(),
+            gainReduction: this.audioContext.createGain(),
+            output: this.audioContext.createGain()
+        };
+        
+        // Setup initial values
+        this.setupReverb();
+        this.setupDelay();
+        this.setupFilter();
+        this.setupDistortion();
+        this.setupPhaser();
+        this.setupGate();
+        
+        console.log('✅ DJ Effects initialized successfully');
+    }
+    
+    setupReverb() {
+        const reverb = this.effectNodes.reverb;
+        
+        // Create impulse response for reverb
+        const length = this.audioContext.sampleRate * this.effects.reverb.decay;
+        const impulse = this.audioContext.createBuffer(2, length, this.audioContext.sampleRate);
+        
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+            }
+        }
+        
+        reverb.convolver.buffer = impulse;
+        reverb.wetGain.gain.value = 0;
+        reverb.dryGain.gain.value = 1;
+        reverb.output.gain.value = 1;
+    }
+    
+    setupDelay() {
+        const delay = this.effectNodes.delay;
+        
+        delay.delay.delayTime.value = this.effects.delay.time;
+        delay.feedback.gain.value = this.effects.delay.feedback;
+        delay.wetGain.gain.value = 0;
+        delay.dryGain.gain.value = 1;
+        delay.output.gain.value = 1;
+    }
+    
+    setupFilter() {
+        const filter = this.effectNodes.filter;
+        
+        filter.filter.type = 'off';
+        filter.filter.frequency.value = this.filter.frequency;
+        filter.filter.Q.value = this.filter.Q;
+        filter.output.gain.value = 1;
+    }
+    
+    setupDistortion() {
+        const distortion = this.effectNodes.distortion;
+        
+        // Create distortion curve
+        const samples = 44100;
+        const curve = new Float32Array(samples);
+        const deg = Math.PI / 180;
+        
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1;
+            curve[i] = ((3 + this.effects.distortion.drive) * x * 20 * deg) / (Math.PI + this.effects.distortion.drive * Math.abs(x));
+        }
+        
+        distortion.waveshaper.curve = curve;
+        distortion.output.gain.value = 1;
+    }
+    
+    setupPhaser() {
+        const phaser = this.effectNodes.phaser;
+        
+        phaser.lfo.type = 'sine';
+        phaser.lfo.frequency.value = this.effects.phaser.rate;
+        phaser.lfoGain.gain.value = this.effects.phaser.depth * 1000;
+        phaser.filter.type = 'allpass';
+        phaser.filter.frequency.value = 1000;
+        phaser.filter.Q.value = 10;
+        phaser.feedback.gain.value = 0.7;
+        phaser.output.gain.value = 1;
+        
+        // Start LFO
+        phaser.lfo.start();
+    }
+
+    setupGate() {
+        const gate = this.effectNodes.gate;
+        
+        // Set initial gate parameters
+        gate.threshold = this.effects.gate.threshold;
+        gate.ratio = this.effects.gate.ratio;
+        gate.attack = this.effects.gate.attack;
+        gate.release = this.effects.gate.release;
+        
+        // Gate will be implemented using DynamicsCompressor and custom logic
+        gate.follower.gain.value = 1;
+        gate.envelope.attack.value = this.effects.gate.attack;
+        gate.envelope.release.value = this.effects.gate.release;
+        gate.envelope.threshold.value = this.effects.gate.threshold;
+        gate.envelope.ratio.value = this.effects.gate.ratio;
+        gate.envelope.knee.value = 0;
+        
+        // Create gain reduction for gating
+        gate.gainReduction.gain.value = 1;
+    }
+
     // 🆕 CROSSFADER CURVE VISUALIZATION
     drawCurvePreview() {
         const canvas = this.elements.curvePreview;
@@ -3750,6 +4917,9 @@ Deck Activo: ${this.activeDeck}
         this.eqVisualizerCtxB = null;
         
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // 🆕 Initialize DJ Effects
+        this.initializeEffects();
         
         // 🆕 Inicializar preview de curvas de crossfader
         this.drawCurvePreview();
