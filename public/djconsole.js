@@ -6,6 +6,19 @@ class DJConsole {
         // Inicializar propiedades básicas
         this.audioContext = null;
         
+        // 🆕 Audio Node Pooling System
+        this.nodePool = {
+            gainNodes: [],
+            analysers: [],
+            bufferSources: []
+        };
+        
+        // Animation frame tracking
+        this.animationFrames = {
+            A: null,
+            B: null
+        };
+        
         // Deck A
         this.deckA = {
             audioBuffer: null,
@@ -98,6 +111,55 @@ class DJConsole {
         this.elements = {};
         this.waveformCtxA = null;
         this.waveformCtxB = null;
+    }
+
+    // 🆕 AUDIO NODE POOLING METHODS
+    getGainNode() {
+        return this.nodePool.gainNodes.pop() || this.audioContext.createGain();
+    }
+    
+    returnGainNode(node) {
+        if (node) {
+            try {
+                node.disconnect();
+                node.gain.value = 1; // Reset to default
+                this.nodePool.gainNodes.push(node);
+            } catch (e) {
+                // Node already disconnected or invalid
+                console.log('🔄 Gain node no válido para pooling');
+            }
+        }
+    }
+    
+    getAnalyser() {
+        return this.nodePool.analysers.pop() || this.audioContext.createAnalyser();
+    }
+    
+    returnAnalyser(node) {
+        if (node) {
+            try {
+                node.disconnect();
+                this.nodePool.analysers.push(node);
+            } catch (e) {
+                console.log('🔄 Analyser node no válido para pooling');
+            }
+        }
+    }
+    
+    getBufferSource() {
+        return this.nodePool.bufferSources.pop() || this.audioContext.createBufferSource();
+    }
+    
+    returnBufferSource(node) {
+        if (node) {
+            try {
+                node.disconnect();
+                this.nodePool.bufferSources.push(node);
+            } catch (e) {
+                // BufferSources no se pueden reutilizar después de stop()
+                console.log('🔄 BufferSource no se puede reutilizar');
+            }
+        }
     }
 
     // 🆕 CREAR ESTRUCTURA HTML PARA 2 DECKS
@@ -1148,6 +1210,54 @@ class DJConsole {
         console.log('✅ Event listeners configurados para 2 decks');
     }
 
+    // 🆕 DESTROY METHOD - Cleanup de recursos
+    destroy() {
+        console.log('🧹 Limpiando recursos de DJ Console...');
+        
+        // Cancelar todas las animaciones
+        Object.values(this.animationFrames).forEach(frame => {
+            if (frame) cancelAnimationFrame(frame);
+        });
+        this.animationFrames = { A: null, B: null };
+        
+        // Detener ambos decks
+        this.stopDeck('A');
+        this.stopDeck('B');
+        
+        // Limpiar todos los nodes del pool
+        this.nodePool.gainNodes.forEach(node => {
+            try { node.disconnect(); } catch (e) {}
+        });
+        this.nodePool.analysers.forEach(node => {
+            try { node.disconnect(); } catch (e) {}
+        });
+        this.nodePool.bufferSources.forEach(node => {
+            try { node.disconnect(); } catch (e) {}
+        });
+        
+        // Resetear pools
+        this.nodePool = {
+            gainNodes: [],
+            analysers: [],
+            bufferSources: []
+        };
+        
+        // Limpiar event listeners (clonando elementos)
+        Object.values(this.elements).forEach(el => {
+            if (el && el.parentNode) {
+                const clone = el.cloneNode(true);
+                el.parentNode.replaceChild(clone, el);
+            }
+        });
+        
+        // Cerrar AudioContext si existe
+        if (this.audioContext && this.audioContext.state !== 'closed') {
+            this.audioContext.close();
+        }
+        
+        console.log('✅ Recursos limpiados exitosamente');
+    }
+
     // Métodos para Deck A
     async loadTrackForDeck(deck, trackUrl) {
         try {
@@ -1238,13 +1348,20 @@ class DJConsole {
             return;
         }
 
-        // Crear nuevo source
-        deckData.source = this.audioContext.createBufferSource();
-        deckData.source.buffer = deckData.audioBuffer;
+        // 🆕 Usar nodes del pool en lugar de crear nuevos
+        // Devolver nodes anteriores al pool si existen
+        if (deckData.gainNode) {
+            this.returnGainNode(deckData.gainNode);
+        }
+        if (deckData.analyser) {
+            this.returnAnalyser(deckData.analyser);
+        }
         
-        // Crear nodes de audio
-        deckData.gainNode = this.audioContext.createGain();
-        deckData.analyser = this.audioContext.createAnalyser();
+        // Obtener nodes del pool
+        deckData.source = this.getBufferSource();
+        deckData.source.buffer = deckData.audioBuffer;
+        deckData.gainNode = this.getGainNode();
+        deckData.analyser = this.getAnalyser();
         
         // Aplicar tempo
         deckData.source.playbackRate.value = deckData.tempo;
@@ -1279,8 +1396,27 @@ class DJConsole {
         const deckData = deck === 'A' ? this.deckA : this.deckB;
         if (!deckData.isPlaying) return;
 
-        deckData.source.stop();
+        // 🆕 Detener source y devolver nodes al pool
+        if (deckData.source) {
+            try {
+                deckData.source.stop();
+            } catch (e) {
+                console.log('🔄 Source ya detenido');
+            }
+        }
+        
+        if (deckData.gainNode) {
+            this.returnGainNode(deckData.gainNode);
+            deckData.gainNode = null;
+        }
+        
+        if (deckData.analyser) {
+            this.returnAnalyser(deckData.analyser);
+            deckData.analyser = null;
+        }
+        
         deckData.isPlaying = false;
+        deckData.source = null;
         
         // Detener beat matching
         this.stopBeatMatching(deck);
@@ -1294,12 +1430,28 @@ class DJConsole {
     stopDeck(deck) {
         const deckData = deck === 'A' ? this.deckA : this.deckB;
         
+        // 🆕 Devolver nodes al pool antes de detener
         if (deckData.source) {
-            deckData.source.stop();
+            try {
+                deckData.source.stop();
+            } catch (e) {
+                console.log('🔄 Source ya detenido');
+            }
+        }
+        
+        if (deckData.gainNode) {
+            this.returnGainNode(deckData.gainNode);
+            deckData.gainNode = null;
+        }
+        
+        if (deckData.analyser) {
+            this.returnAnalyser(deckData.analyser);
+            deckData.analyser = null;
         }
         
         deckData.isPlaying = false;
         deckData.currentTime = 0;
+        deckData.source = null;
         
         // Detener beat matching
         this.stopBeatMatching(deck);
@@ -1332,6 +1484,11 @@ class DJConsole {
         
         if (!deckData.isPlaying) return;
         
+        // 🆕 Cancelar animación anterior si existe
+        if (this.animationFrames[deck]) {
+            cancelAnimationFrame(this.animationFrames[deck]);
+        }
+        
         deckData.currentTime += 0.016 * deckData.tempo; // ~60fps
         
         if (deckData.currentTime >= deckData.duration) {
@@ -1343,7 +1500,8 @@ class DJConsole {
         this.updatePlayhead(deck);
         this.updateVUMeters(deck);
         
-        requestAnimationFrame(() => this.animateDeck(deck));
+        // 🆕 Guardar referencia del animation frame
+        this.animationFrames[deck] = requestAnimationFrame(() => this.animateDeck(deck));
     }
 
     updateTimeDisplay(deck) {
@@ -1385,13 +1543,27 @@ class DJConsole {
         
         // Si está reproduciendo, hacer seek
         if (deckData.isPlaying && deckData.source) {
-            // Detener source actual
-            deckData.source.stop();
+            // 🆕 Devolver nodes al pool antes de hacer seek
+            if (deckData.gainNode) {
+                this.returnGainNode(deckData.gainNode);
+            }
+            if (deckData.analyser) {
+                this.returnAnalyser(deckData.analyser);
+            }
             
-            // Crear nuevo source desde la nueva posición
-            deckData.source = this.audioContext.createBufferSource();
+            // Detener source actual
+            try {
+                deckData.source.stop();
+            } catch (e) {
+                console.log('🔄 Source ya detenido durante seek');
+            }
+            
+            // 🆕 Obtener nuevos nodes del pool
+            deckData.source = this.getBufferSource();
             deckData.source.buffer = deckData.audioBuffer;
             deckData.source.playbackRate.value = deckData.tempo;
+            deckData.gainNode = this.getGainNode();
+            deckData.analyser = this.getAnalyser();
             
             // Reconectar la cadena de audio
             deckData.source.connect(deckData.eqFilters.low);
