@@ -5,22 +5,49 @@ class DJConsole {
     constructor() {
         // Inicializar propiedades básicas
         this.audioContext = null;
-        this.audioBuffer = null;
-        this.source = null;
-        this.analyser = null;
-        this.gainNode = null;
-
-        // Configuración inicial
-        this.isPlaying = false;
-        this.currentTime = 0;
-        this.duration = 0;
-        this.volume = 0.8;
-        this.bpm = 128;
-        this.currentTrack = null;
+        
+        // Deck A
+        this.deckA = {
+            audioBuffer: null,
+            source: null,
+            isPlaying: false,
+            currentTime: 0,
+            duration: 0,
+            volume: 0.8,
+            bpm: 128,
+            currentTrack: null,
+            analyser: null,
+            gainNode: null,
+            eq: { low: 0, mid: 0, high: 0 },
+            tempo: 1.0,
+            cuePoints: [null, null, null, null],
+            hotCues: [null, null, null, null]
+        };
+        
+        // Deck B
+        this.deckB = {
+            audioBuffer: null,
+            source: null,
+            isPlaying: false,
+            currentTime: 0,
+            duration: 0,
+            volume: 0.8,
+            bpm: 128,
+            currentTrack: null,
+            analyser: null,
+            gainNode: null,
+            eq: { low: 0, mid: 0, high: 0 },
+            tempo: 1.0,
+            cuePoints: [null, null, null, null],
+            hotCues: [null, null, null, null]
+        };
+        
+        // Master controls
+        this.crossfader = 0.5;
+        this.masterVolume = 0.8;
+        this.masterBpm = 128;
 
         // Efectos y controles
-        this.eq = { low: 0, mid: 0, high: 0 };
-        this.killSwitches = { low: false, mid: false, high: false };
         this.filter = { type: 'off', frequency: 1000, Q: 1 };
         this.effects = {
             reverb: { mix: 0, decay: 2 },
@@ -31,1350 +58,918 @@ class DJConsole {
         this.crossfader = 0.5;
         this.crossfaderCurve = 1;
         this.tempo = 1.0;
-        this.cuePoints = new Array(8).fill(null);
-        this.loopRegion = { start: null, end: null, active: false };
+        this.tempoRange = { min: 0.5, max: 2.0 };
+        this.cuePoints = [null, null, null, null];
+        this.loopRegion = { start: 0, end: 0, active: false };
 
-        // Referencias a elementos del DOM
+        // Beat matching
+        this.beatMatching = {
+            enabled: true,
+            tolerance: 0.05, // 5% tolerance
+            lastBeatA: 0,
+            lastBeatB: 0,
+            beatIntervalA: 0,
+            beatIntervalB: 0,
+            beatTimerA: null,
+            beatTimerB: null
+        };
+
+        // Cache de elementos DOM
         this.elements = {};
-
-        console.log('🎛️ DJ Console Avanzada inicializada');
+        this.waveformCtxA = null;
+        this.waveformCtxB = null;
     }
 
-    async init() {
-        console.log('🎛️ Inicializando DJ Console...');
-        try {
-            // 🆕 Verificar que el DOM esté listo
-            if (!document.getElementById('dj-console')) {
-                throw new Error('Elemento dj-console no encontrado en el DOM');
-            }
-
-            console.log('🎛️ Creando UI de consola...');
-            this.createConsoleUI();
-
-            console.log('🎛️ Configurando AudioContext...');
-            await this.setupAudioContext();
-
-            console.log('🎛️ Configurando event listeners...');
-            this.setupEventListeners();
-
-            // 🆕 NO cargar track por defecto - esperar selección del usuario
-            console.log('✅ DJ Console lista - esperando selección de track');
-        } catch (error) {
-            console.error('❌ Error inicializando DJ Console:', error);
-            console.error('Stack trace:', error.stack);
-            throw error; // Re-lanzar para que sea capturado en el HTML
+    // 🆕 CREAR ESTRUCTURA HTML PARA 2 DECKS
+    createConsole() {
+        const container = document.getElementById('dj-console');
+        if (!container) {
+            console.error('❌ No se encontró el contenedor #dj-console');
+            return;
         }
-    }
 
-    createConsoleUI() {
-        // 🆕 TRACK LOADER PRIMERO
-        const trackLoaderHTML = `
-            <div class="track-loader">
-                <h3>🎵 SELECCIONAR TRACK</h3>
-                <div class="track-source-selector">
-                    <button class="source-btn active" id="sourceLibrary">📚 Biblioteca DJMesh</button>
-                    <button class="source-btn" id="sourceUpload">📁 Subir Archivo</button>
-                </div>
-                <div class="track-selector">
-                    <select class="track-select" id="trackSelect" style="display: block;">
-                        <option value="">🎵 Selecciona un track...</option>
-                        <option value="/Music/track1.mp3">🎵 4 - dR.iAn</option>
-                        <option value="/Music/mereconozco.mp3">🎵 Me Reconozco - Rodrigo Escamilla</option>
-                        <option value="/Music/mariutodalanoche.mp3">🎵 Toda La Noche - Mariu</option>
-                        <option value="/Music/acontratiempo.mp3">🎵 A Contratiempo - Demian Cobo ft. Daniel Tejeda</option>
-                    </select>
-                    <input type="file" class="file-input" id="fileInput" accept="audio/*">
-                    <label for="fileInput" class="file-input-label" style="display: none;">📁 Elegir archivo...</label>
-                    <button class="source-btn" id="loadTrackBtn">🎵 CARGAR TRACK</button>
-                </div>
-            </div>
-        `;
-
-        // Insertar track loader antes de la consola
-        const consoleDiv = document.getElementById('dj-console');
-        consoleDiv.insertAdjacentHTML('afterbegin', trackLoaderHTML);
-
-        // Reemplazar el contenido de la consola con diseño más compacto
-        const consoleHTML = `
-            <div class="dj-console" id="djConsole">
-                <!-- 🖥️ PANTALLA OLED COMPACTA -->
-                <div class="console-screen">
-                    <div class="oled-display">
-                        <div class="track-info">
-                            <span class="track-name" id="trackName">SIN TRACK CARGADO</span>
-                            <span class="track-artist" id="trackArtist">SELECCIONA UN TRACK</span>
-                            <span class="bpm-display" id="bpmDisplay">BPM: ---</span>
-                        </div>
+        container.innerHTML = `
+            <div class="dj-mixer-container">
+                <!-- Deck A -->
+                <div class="deck deck-a">
+                    <div class="deck-header">
+                        <h3>DECK A</h3>
+                        <div class="deck-status" id="deckAStatus">STOPPED</div>
+                    </div>
+                    
+                    <div class="track-info">
+                        <div class="track-name" id="trackNameA">No Track Loaded</div>
+                        <div class="track-artist" id="trackArtistA">--- BPM</div>
                         <div class="time-display">
-                            <span id="currentTime">--:--</span>
-                            <span id="totalTime">--:--</span>
+                            <span id="currentTimeA">00:00</span> / <span id="totalTimeA">00:00</span>
                         </div>
                     </div>
 
-                    <!-- 🎵 WAVEFORM COMPACTA -->
                     <div class="waveform-container">
-                        <canvas id="mainWaveform" width="600" height="80"></canvas>
-                        <div class="waveform-overlay">
-                            <div class="cue-points" id="cuePoints"></div>
-                            <div class="loop-region" id="loopRegion"></div>
-                            <div class="playhead" id="playhead"></div>
-                        </div>
+                        <canvas id="waveformA" width="400" height="150"></canvas>
+                        <div class="playhead" id="playheadA"></div>
                     </div>
 
-                    <!-- 📊 VISUALIZADORES -->
-                    <div class="visualizers">
-                        <canvas id="spectrumViz" width="150" height="60"></canvas>
-                        <canvas id="circularBPM" width="60" height="60"></canvas>
-                    </div>
-                </div>
-
-                <!-- 🎚️ CONTROLES MIXER -->
-                <div class="console-controls">
-                    <div class="mixer-section">
-                        <div class="crossfader-container">
-                            <label>Crossfader</label>
-                            <input type="range" id="crossfader" min="0" max="1" step="0.01" value="0.5">
-                            <div class="crossfader-curve">
-                                <label>Curve</label>
-                                <input type="range" id="crossfaderCurve" min="0.1" max="3" step="0.1" value="1">
-                            </div>
-                        </div>
-
-                        <div class="tempo-container">
-                            <label>Tempo</label>
-                            <input type="range" id="tempoControl" min="0.5" max="1.5" step="0.01" value="1">
-                            <button id="tempoReset" class="control-btn">RESET</button>
-                            <span id="tempoDisplay">100%</span>
-                        </div>
+                    <div class="transport-controls">
+                        <button id="cueA" class="btn-cue">CUE</button>
+                        <button id="playA" class="btn-play">▶</button>
+                        <button id="pauseA" class="btn-pause">⏸</button>
+                        <button id="stopA" class="btn-stop">⏹</button>
                     </div>
 
-                    <!-- EQ 3-BANDAS -->
                     <div class="eq-section">
                         <div class="eq-band">
                             <label>LOW</label>
-                            <input type="range" id="eqLow" min="-20" max="20" step="1" value="0" orient="vertical">
-                            <button id="killLow" class="kill-btn">KILL</button>
+                            <input type="range" id="eqLowA" min="-20" max="20" value="0" class="eq-slider">
+                            <span id="eqLowValueA">0</span>
                         </div>
                         <div class="eq-band">
                             <label>MID</label>
-                            <input type="range" id="eqMid" min="-20" max="20" step="1" value="0" orient="vertical">
-                            <button id="killMid" class="kill-btn">KILL</button>
+                            <input type="range" id="eqMidA" min="-20" max="20" value="0" class="eq-slider">
+                            <span id="eqMidValueA">0</span>
                         </div>
                         <div class="eq-band">
                             <label>HIGH</label>
-                            <input type="range" id="eqHigh" min="-20" max="20" step="1" value="0" orient="vertical">
-                            <button id="killHigh" class="kill-btn">KILL</button>
+                            <input type="range" id="eqHighA" min="-20" max="20" value="0" class="eq-slider">
+                            <span id="eqHighValueA">0</span>
                         </div>
                     </div>
 
-                    <!-- FILTRO -->
-                    <div class="filter-section">
-                        <select id="filterType">
-                            <option value="off">OFF</option>
-                            <option value="lowpass">LP</option>
-                            <option value="highpass">HP</option>
-                            <option value="bandpass">BP</option>
+                    <div class="tempo-section">
+                        <label>TEMPO: <span id="tempoDisplayA">100%</span></label>
+                        <input type="range" id="tempoA" min="50" max="200" value="100" class="tempo-slider">
+                    </div>
+
+                    <div class="cue-points">
+                        <button id="cue1A" class="btn-cue-point">CUE1</button>
+                        <button id="cue2A" class="btn-cue-point">CUE2</button>
+                        <button id="cue3A" class="btn-cue-point">CUE3</button>
+                        <button id="cue4A" class="btn-cue-point">CUE4</button>
+                    </div>
+
+                    <div class="track-selector">
+                        <select id="trackSelectA">
+                            <option value="">Select Track</option>
+                            <option value="track1">4 - dR.iAn</option>
+                            <option value="mereconozco">Me Reconozco</option>
+                            <option value="mariutodalanoche">Toda La Noche</option>
+                            <option value="acontratiempo">A Contratiempo</option>
                         </select>
-                        <div class="filter-controls">
-                            <input type="range" id="filterFreq" min="20" max="20000" step="10" value="1000">
-                            <input type="range" id="filterQ" min="0.1" max="10" step="0.1" value="1">
-                        </div>
+                        <button id="loadTrackA" class="btn-load">LOAD</button>
                     </div>
                 </div>
 
-                <!-- 🎯 HOT CUES Y LOOP -->
-                <div class="cues-section">
-                    <div class="cue-buttons">
-                        ${Array.from({length: 8}, (_, i) =>
-                            `<button class="cue-btn" data-cue="${i+1}">CUE ${i+1}</button>`
-                        ).join('')}
+                <!-- Sección Central (Crossfader y Master) -->
+                <div class="mixer-section">
+                    <div class="crossfader-section">
+                        <label>CROSSFADER</label>
+                        <input type="range" id="crossfader" min="0" max="100" value="50" class="crossfader-slider">
+                        <div class="crossfader-labels">
+                            <span>A</span>
+                            <span>MIX</span>
+                            <span>B</span>
+                        </div>
                     </div>
-                    <div class="loop-controls">
-                        <button id="setLoopIn">IN</button>
-                        <button id="setLoopOut">OUT</button>
-                        <button id="toggleLoop">LOOP</button>
+
+                    <div class="bpm-sync-section">
+                        <label>BPM SYNC</label>
+                        <div class="sync-buttons">
+                            <button id="syncAtoB" class="btn-sync">A → B</button>
+                            <button id="syncBtoA" class="btn-sync">B → A</button>
+                        </div>
+                        <div class="bpm-display" id="bpmSyncDisplay">BPM: 128</div>
+                    </div>
+
+                    <div class="master-section">
+                        <div class="master-bpm" id="masterBpm">MASTER BPM: 128</div>
+                        <div class="master-volume">
+                            <label>MASTER</label>
+                            <input type="range" id="masterVolume" min="0" max="100" value="80" class="volume-slider">
+                            <span id="masterVolumeDisplay">80%</span>
+                        </div>
+                    </div>
+
+                    <div class="vu-meters">
+                        <div class="vu-meter" id="vuMeterA">
+                            <div class="vu-bar"></div>
+                        </div>
+                        <div class="vu-meter" id="vuMeterB">
+                            <div class="vu-bar"></div>
+                        </div>
+                    </div>
+
+                    <div class="beat-matching-section">
+                        <label>BEAT MATCHING</label>
+                        <div class="beat-indicators">
+                            <div class="beat-indicator" id="beatIndicatorA">
+                                <div class="beat-light"></div>
+                                <span>DECK A</span>
+                            </div>
+                            <div class="beat-indicator" id="beatIndicatorB">
+                                <div class="beat-light"></div>
+                                <span>DECK B</span>
+                            </div>
+                        </div>
+                        <div class="sync-status" id="syncStatus">NO SYNC</div>
                     </div>
                 </div>
 
-                <!-- ✨ EFECTOS -->
-                <div class="effects-panel" id="effectsPanel">
-                    <button id="toggleEffects" class="effects-toggle">🎛️ EFFECTS</button>
-                    <div class="effects-controls">
-                        <div class="effect-control">
-                            <label>REVERB</label>
-                            <input type="range" id="reverbMix" min="0" max="1" step="0.01" value="0">
-                            <input type="range" id="reverbDecay" min="0.1" max="5" step="0.1" value="2">
-                        </div>
-                        <div class="effect-control">
-                            <label>DELAY</label>
-                            <input type="range" id="delayTime" min="0.1" max="2" step="0.01" value="0.5">
-                            <input type="range" id="delayFeedback" min="0" max="0.9" step="0.01" value="0.3">
-                        </div>
-                        <div class="effect-control">
-                            <label>DISTORTION</label>
-                            <input type="range" id="distortionDrive" min="0" max="1" step="0.01" value="0">
-                        </div>
-                        <div class="effect-control">
-                            <label>PHASER</label>
-                            <input type="range" id="phaserRate" min="0" max="10" step="0.1" value="0.5">
+                <!-- Deck B -->
+                <div class="deck deck-b">
+                    <div class="deck-header">
+                        <h3>DECK B</h3>
+                        <div class="deck-status" id="deckBStatus">STOPPED</div>
+                    </div>
+                    
+                    <div class="track-info">
+                        <div class="track-name" id="trackNameB">No Track Loaded</div>
+                        <div class="track-artist" id="trackArtistB">--- BPM</div>
+                        <div class="time-display">
+                            <span id="currentTimeB">00:00</span> / <span id="totalTimeB">00:00</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- 🎮 TRANSPORTE -->
-                <div class="transport-controls">
-                    <button id="playBtn" class="transport-btn">▶️ PLAY</button>
-                    <button id="pauseBtn" class="transport-btn">⏸️ PAUSE</button>
-                    <button id="stopBtn" class="transport-btn">⏹️ STOP</button>
+                    <div class="waveform-container">
+                        <canvas id="waveformB" width="400" height="150"></canvas>
+                        <div class="playhead" id="playheadB"></div>
+                    </div>
+
+                    <div class="transport-controls">
+                        <button id="cueB" class="btn-cue">CUE</button>
+                        <button id="playB" class="btn-play">▶</button>
+                        <button id="pauseB" class="btn-pause">⏸</button>
+                        <button id="stopB" class="btn-stop">⏹</button>
+                    </div>
+
+                    <div class="eq-section">
+                        <div class="eq-band">
+                            <label>LOW</label>
+                            <input type="range" id="eqLowB" min="-20" max="20" value="0" class="eq-slider">
+                            <span id="eqLowValueB">0</span>
+                        </div>
+                        <div class="eq-band">
+                            <label>MID</label>
+                            <input type="range" id="eqMidB" min="-20" max="20" value="0" class="eq-slider">
+                            <span id="eqMidValueB">0</span>
+                        </div>
+                        <div class="eq-band">
+                            <label>HIGH</label>
+                            <input type="range" id="eqHighB" min="-20" max="20" value="0" class="eq-slider">
+                            <span id="eqHighValueB">0</span>
+                        </div>
+                    </div>
+
+                    <div class="tempo-section">
+                        <label>TEMPO: <span id="tempoDisplayB">100%</span></label>
+                        <input type="range" id="tempoB" min="50" max="200" value="100" class="tempo-slider">
+                    </div>
+
+                    <div class="cue-points">
+                        <button id="cue1B" class="btn-cue-point">CUE1</button>
+                        <button id="cue2B" class="btn-cue-point">CUE2</button>
+                        <button id="cue3B" class="btn-cue-point">CUE3</button>
+                        <button id="cue4B" class="btn-cue-point">CUE4</button>
+                    </div>
+
+                    <div class="track-selector">
+                        <select id="trackSelectB">
+                            <option value="">Select Track</option>
+                            <option value="track1">4 - dR.iAn</option>
+                            <option value="mereconozco">Me Reconozco</option>
+                            <option value="mariutodalanoche">Toda La Noche</option>
+                            <option value="acontratiempo">A Contratiempo</option>
+                        </select>
+                        <button id="loadTrackB" class="btn-load">LOAD</button>
+                    </div>
                 </div>
             </div>
         `;
 
-        consoleDiv.insertAdjacentHTML('beforeend', consoleHTML);
-        this.cacheElements();
-        this.applyTechnoStyling();
-        this.setupTrackLoader();
-        console.log('🎛️ UI de DJ Console creada con track loader');
+        console.log('✅ Estructura HTML de 2 decks creada');
     }
 
+    // 🆕 CACHE DE ELEMENTOS PARA 2 DECKS
     cacheElements() {
-        // Pantalla principal
-        this.elements.trackName = document.getElementById('trackName');
-        this.elements.trackArtist = document.getElementById('trackArtist');
-        this.elements.bpmDisplay = document.getElementById('bpmDisplay');
-        this.elements.currentTime = document.getElementById('currentTime');
-        this.elements.totalTime = document.getElementById('totalTime');
+        // Deck A
+        this.elements.trackNameA = document.getElementById('trackNameA');
+        this.elements.trackArtistA = document.getElementById('trackArtistA');
+        this.elements.currentTimeA = document.getElementById('currentTimeA');
+        this.elements.totalTimeA = document.getElementById('totalTimeA');
+        this.elements.deckAStatus = document.getElementById('deckAStatus');
+        this.elements.waveformA = document.getElementById('waveformA');
+        this.elements.playheadA = document.getElementById('playheadA');
+        this.elements.eqLowA = document.getElementById('eqLowA');
+        this.elements.eqMidA = document.getElementById('eqMidA');
+        this.elements.eqHighA = document.getElementById('eqHighA');
+        this.elements.tempoA = document.getElementById('tempoA');
+        this.elements.tempoDisplayA = document.getElementById('tempoDisplayA');
+        this.elements.trackSelectA = document.getElementById('trackSelectA');
+        this.elements.loadTrackA = document.getElementById('loadTrackA');
 
-        // Waveform
-        this.elements.mainWaveform = document.getElementById('mainWaveform');
-        this.elements.cuePoints = document.getElementById('cuePoints');
-        this.elements.loopRegion = document.getElementById('loopRegion');
-        this.elements.playhead = document.getElementById('playhead');
+        // Deck B
+        this.elements.trackNameB = document.getElementById('trackNameB');
+        this.elements.trackArtistB = document.getElementById('trackArtistB');
+        this.elements.currentTimeB = document.getElementById('currentTimeB');
+        this.elements.totalTimeB = document.getElementById('totalTimeB');
+        this.elements.deckBStatus = document.getElementById('deckBStatus');
+        this.elements.waveformB = document.getElementById('waveformB');
+        this.elements.playheadB = document.getElementById('playheadB');
+        this.elements.eqLowB = document.getElementById('eqLowB');
+        this.elements.eqMidB = document.getElementById('eqMidB');
+        this.elements.eqHighB = document.getElementById('eqHighB');
+        this.elements.tempoB = document.getElementById('tempoB');
+        this.elements.tempoDisplayB = document.getElementById('tempoDisplayB');
+        this.elements.trackSelectB = document.getElementById('trackSelectB');
+        this.elements.loadTrackB = document.getElementById('loadTrackB');
 
-        // Visualizers
-        this.elements.spectrumViz = document.getElementById('spectrumViz');
-        this.elements.circularBPM = document.getElementById('circularBPM');
-
-        // Controles
+        // Master
         this.elements.crossfader = document.getElementById('crossfader');
-        this.elements.crossfaderCurve = document.getElementById('crossfaderCurve');
-        this.elements.tempoControl = document.getElementById('tempoControl');
-        this.elements.tempoReset = document.getElementById('tempoReset');
-        this.elements.tempoDisplay = document.getElementById('tempoDisplay');
+        this.elements.masterVolume = document.getElementById('masterVolume');
+        this.elements.masterVolumeDisplay = document.getElementById('masterVolumeDisplay');
+        this.elements.masterBpm = document.getElementById('masterBpm');
 
-        // EQ
-        this.elements.eqLow = document.getElementById('eqLow');
-        this.elements.eqMid = document.getElementById('eqMid');
-        this.elements.eqHigh = document.getElementById('eqHigh');
-        this.elements.killLow = document.getElementById('killLow');
-        this.elements.killMid = document.getElementById('killMid');
-        this.elements.killHigh = document.getElementById('killHigh');
-
-        // Filtro
-        this.elements.filterType = document.getElementById('filterType');
-        this.elements.filterFreq = document.getElementById('filterFreq');
-        this.elements.filterQ = document.getElementById('filterQ');
-
-        // Efectos
-        this.elements.toggleEffects = document.getElementById('toggleEffects');
-        this.elements.effectsPanel = document.getElementById('effectsPanel');
-        this.elements.reverbMix = document.getElementById('reverbMix');
-        this.elements.reverbDecay = document.getElementById('reverbDecay');
-        this.elements.delayTime = document.getElementById('delayTime');
-        this.elements.delayFeedback = document.getElementById('delayFeedback');
-        this.elements.distortionDrive = document.getElementById('distortionDrive');
-        this.elements.phaserRate = document.getElementById('phaserRate');
-
-        // Transporte
-        this.elements.playBtn = document.getElementById('playBtn');
-        this.elements.pauseBtn = document.getElementById('pauseBtn');
-        this.elements.stopBtn = document.getElementById('stopBtn');
-        this.elements.prevTrackBtn = document.getElementById('prevTrackBtn');
-        this.elements.nextTrackBtn = document.getElementById('nextTrackBtn');
-
-        // Canvas contexts - con verificación
-        if (this.elements.mainWaveform) {
-            this.waveformCtx = this.elements.mainWaveform.getContext('2d');
-        }
-        if (this.elements.spectrumViz) {
-            this.spectrumCtx = this.elements.spectrumViz.getContext('2d');
-        }
-        if (this.elements.circularBPM) {
-            this.circularCtx = this.elements.circularBPM.getContext('2d');
-        }
+        console.log('✅ Elementos cacheados para 2 decks');
     }
 
+    // 🆕 ESTILOS TECNO ACTUALIZADOS PARA 2 DECKS
     applyTechnoStyling() {
         const style = document.createElement('style');
         style.textContent = `
-            /* 🎛️ DJ CONSOLE TECHNO CONTEMPORÁNEO */
-            .dj-console {
-                position: relative;
-                width: 100%;
-                background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 25%, #0d1b2a 50%, #1b263b 75%, #0a0a0a 100%);
-                border-radius: 15px;
+            .dj-mixer-container {
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
+                gap: 20px;
                 padding: 20px;
-                color: #00ffff;
+                background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%);
+                border-radius: 15px;
+                min-height: 600px;
                 font-family: 'Courier New', monospace;
-                font-size: 14px;
+                color: #00ffff;
+                box-shadow: 0 0 30px rgba(0,255,255,0.3);
+            }
+
+            .deck {
+                background: rgba(0,20,40,0.8);
                 border: 2px solid #00ffff;
-                box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
-                margin-top: 20px;
-            }
-
-            .console-screen {
-                margin-bottom: 20px;
-            }
-
-            .oled-display {
-                background: linear-gradient(135deg, #000000, #111111);
-                border: 1px solid #00ffff;
-                border-radius: 8px;
+                border-radius: 10px;
                 padding: 15px;
-                margin-bottom: 10px;
-                box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.1);
-                text-align: center;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .deck-a {
+                border-color: #ff0080;
+                box-shadow: 0 0 20px rgba(255,0,128,0.3);
+            }
+
+            .deck-b {
+                border-color: #00ff80;
+                box-shadow: 0 0 20px rgba(0,255,128,0.3);
+            }
+
+            .deck-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px;
+                background: rgba(0,0,0,0.5);
+                border-radius: 5px;
+            }
+
+            .deck-header h3 {
+                margin: 0;
+                font-size: 18px;
+                font-weight: bold;
+            }
+
+            .deck-a .deck-header h3 {
+                color: #ff0080;
+            }
+
+            .deck-b .deck-header h3 {
+                color: #00ff80;
+            }
+
+            .deck-status {
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-size: 12px;
+                font-weight: bold;
+                border: 1px solid;
+                background: rgba(255,0,0,0.2);
+                border-color: #ff0000;
+                color: #ff0000;
             }
 
             .track-info {
-                margin-bottom: 10px;
+                text-align: center;
+                padding: 10px;
+                background: rgba(0,0,0,0.3);
+                border-radius: 5px;
             }
 
             .track-name {
-                font-size: 1.2em;
+                font-size: 14px;
                 font-weight: bold;
-                color: #00ffff;
-                text-shadow: 0 0 10px #00ffff;
-                display: block;
+                margin-bottom: 5px;
             }
 
             .track-artist {
-                font-size: 0.9em;
-                color: #ff00ff;
-                opacity: 0.8;
-                display: block;
-            }
-
-            .bpm-display {
-                font-size: 0.8em;
-                color: #ffff00;
-                display: block;
+                font-size: 12px;
+                color: #888;
+                margin-bottom: 5px;
             }
 
             .time-display {
-                display: flex;
-                justify-content: space-between;
-                font-size: 0.9em;
-                color: #00ff00;
+                font-size: 12px;
+                font-family: monospace;
             }
 
             .waveform-container {
                 position: relative;
-                background: #000;
-                border: 1px solid #00ffff;
+                height: 150px;
+                background: rgba(0,0,0,0.5);
+                border: 1px solid #333;
                 border-radius: 5px;
                 overflow: hidden;
-                margin-bottom: 10px;
             }
 
-            .waveform-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                pointer-events: none;
-            }
-
-            .cue-points {
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-            }
-
-            .cue-point {
-                position: absolute;
-                width: 2px;
+            .waveform-container canvas {
+                width: 100%;
                 height: 100%;
-                background: #ff00ff;
-                box-shadow: 0 0 5px #ff00ff;
-                cursor: pointer;
-                pointer-events: auto;
             }
 
             .playhead {
                 position: absolute;
+                top: 0;
+                left: 0%;
                 width: 2px;
                 height: 100%;
-                background: #00ff00;
-                box-shadow: 0 0 10px #00ff00;
-                top: 0;
-            }
-
-            .visualizers {
-                display: flex;
-                gap: 10px;
-                justify-content: center;
-            }
-
-            .console-controls {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 20px;
-                margin-bottom: 20px;
-            }
-
-            .mixer-section, .eq-section, .filter-section, .cues-section {
-                background: rgba(0, 255, 255, 0.1);
-                border: 1px solid rgba(0, 255, 255, 0.3);
-                border-radius: 8px;
-                padding: 15px;
-            }
-
-            .crossfader-container, .tempo-container {
-                margin-bottom: 15px;
-            }
-
-            .crossfader-container input, .tempo-container input {
-                width: 100%;
-                margin: 5px 0;
-            }
-
-            .eq-band {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .eq-band input {
-                writing-mode: bt-lr;
-                width: 60px;
-                height: 150px;
-                appearance: slider-vertical;
-                background: linear-gradient(to top, #ff0000, #ffff00, #00ff00);
-                outline: none;
-                border-radius: 5px;
-                cursor: pointer;
-            }
-
-            .kill-btn {
-                background: #ff0000;
-                color: white;
-                border: none;
-                padding: 2px 5px;
-                border-radius: 3px;
-                font-size: 0.7em;
-                cursor: pointer;
-            }
-
-            .kill-btn.active {
-                background: #00ff00;
-            }
-
-            .filter-section select, .filter-section input {
-                margin: 5px;
-            }
-
-            .cue-buttons {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 5px;
-                margin-bottom: 10px;
-            }
-
-            .cue-btn {
-                background: rgba(255, 0, 255, 0.2);
-                border: 1px solid #ff00ff;
-                color: #ff00ff;
-                padding: 5px;
-                border-radius: 3px;
-                cursor: pointer;
-                font-size: 0.8em;
-            }
-
-            .cue-btn.active {
-                background: #ff00ff;
-                color: white;
-            }
-
-            .loop-controls {
-                display: flex;
-                gap: 5px;
-                justify-content: center;
-            }
-
-            .loop-controls button {
-                background: rgba(255, 255, 0, 0.2);
-                border: 1px solid #ffff00;
-                color: #ffff00;
-                padding: 5px 10px;
-                border-radius: 3px;
-                cursor: pointer;
-            }
-
-            .effects-panel {
-                margin-bottom: 20px;
-            }
-
-            .effects-toggle {
-                background: linear-gradient(135deg, #ff00ff, #00ffff);
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
-                cursor: pointer;
-                font-weight: bold;
-                width: 100%;
-            }
-
-            .effects-controls {
-                display: none;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 15px;
-                margin-top: 15px;
-            }
-
-            .effects-controls.active {
-                display: grid;
-            }
-
-            .effect-control {
-                background: rgba(255, 255, 255, 0.1);
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                border-radius: 5px;
-                padding: 10px;
-                text-align: center;
-            }
-
-            .effect-control label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: bold;
-                font-size: 12px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-
-            .effect-control input {
-                width: 100%;
-                height: 40px;
-                font-size: 14px;
-                padding: 5px;
-                border-radius: 5px;
-                border: 1px solid #00ffff;
-                background: rgba(0, 255, 255, 0.1);
-                color: #00ffff;
-                cursor: pointer;
+                background: #ffff00;
+                pointer-events: none;
             }
 
             .transport-controls {
                 display: flex;
+                gap: 5px;
                 justify-content: center;
-                gap: 10px;
-                margin-top: 15px;
             }
 
-            .transport-btn {
-                background: rgba(0, 255, 0, 0.2);
-                border: 1px solid #00ff00;
-                color: #00ff00;
-                padding: 10px 15px;
-                border-radius: 5px;
+            .transport-controls button {
+                padding: 8px 12px;
+                border: 1px solid #00ffff;
+                background: rgba(0,255,255,0.1);
+                color: #00ffff;
+                border-radius: 3px;
                 cursor: pointer;
-                font-size: 1.2em;
+                font-family: monospace;
+                font-size: 12px;
+                transition: all 0.3s;
             }
 
-            .transport-btn:hover {
-                background: rgba(0, 255, 0, 0.4);
+            .transport-controls button:hover {
+                background: rgba(0,255,255,0.3);
+                transform: scale(1.05);
             }
 
-            /* 🎨 ANIMACIONES TECHNO */
-            @keyframes neonGlow {
-                0%, 100% { box-shadow: 0 0 5px #00ffff; }
-                50% { box-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff; }
+            .eq-section {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
             }
 
-            .dj-console {
-                animation: neonGlow 3s ease-in-out infinite;
+            .eq-band {
+                text-align: center;
             }
 
-            /* 📱 RESPONSIVE PARA MÓVILES */
-            @media (max-width: 768px) {
-                .dj-console {
-                    bottom: 10px;
-                    left: 10px;
-                    right: 10px;
-                    padding: 15px;
-                }
+            .eq-band label {
+                display: block;
+                font-size: 10px;
+                margin-bottom: 5px;
+            }
 
-                .console-controls {
+            .eq-slider {
+                width: 100%;
+                height: 60px;
+                writing-mode: bt-lr;
+                -webkit-appearance: slider-vertical;
+                background: linear-gradient(to top, #ff0000, #ffff00, #00ff00);
+                outline: none;
+                border-radius: 3px;
+            }
+
+            .tempo-section {
+                text-align: center;
+            }
+
+            .tempo-section label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+
+            .tempo-slider {
+                width: 100%;
+                height: 8px;
+                background: linear-gradient(to right, #ff0000, #ffff00, #00ff00);
+                outline: none;
+                border-radius: 4px;
+            }
+
+            .cue-points {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+            }
+
+            .btn-cue-point {
+                padding: 8px;
+                border: 1px solid #666;
+                background: rgba(255,255,255,0.1);
+                color: #fff;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 10px;
+                transition: all 0.3s;
+            }
+
+            .btn-cue-point.active {
+                background: rgba(255,255,0,0.3);
+                border-color: #ffff00;
+                color: #ffff00;
+            }
+
+            .track-selector {
+                display: flex;
+                gap: 5px;
+            }
+
+            .track-selector select {
+                flex: 1;
+                padding: 5px;
+                background: rgba(0,0,0,0.5);
+                border: 1px solid #333;
+                color: #fff;
+                border-radius: 3px;
+            }
+
+            .btn-load {
+                padding: 5px 10px;
+                border: 1px solid #00ff00;
+                background: rgba(0,255,0,0.1);
+                color: #00ff00;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 10px;
+            }
+
+            .mixer-section {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                gap: 20px;
+                padding: 20px 10px;
+                background: rgba(0,0,0,0.5);
+                border-radius: 10px;
+                border: 2px solid #ffff00;
+            }
+
+            .crossfader-section {
+                text-align: center;
+            }
+
+            .crossfader-section label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 10px;
+                color: #ffff00;
+            }
+
+            .crossfader-slider {
+                width: 100px;
+                height: 8px;
+                background: linear-gradient(to right, #ff0080, #ffff00, #00ff80);
+                outline: none;
+                border-radius: 4px;
+            }
+
+            .crossfader-labels {
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                margin-top: 5px;
+            }
+
+            .bpm-sync-section {
+                text-align: center;
+                padding: 10px;
+                background: rgba(255,255,0,0.1);
+                border-radius: 5px;
+                border: 1px solid #ffff00;
+            }
+
+            .bpm-sync-section label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 10px;
+                color: #ffff00;
+                font-weight: bold;
+            }
+
+            .sync-buttons {
+                display: flex;
+                gap: 5px;
+                justify-content: center;
+                margin-bottom: 10px;
+            }
+
+            .btn-sync {
+                padding: 8px 12px;
+                border: 1px solid #ffff00;
+                background: rgba(255,255,0,0.1);
+                color: #ffff00;
+                border-radius: 3px;
+                cursor: pointer;
+                font-family: monospace;
+                font-size: 10px;
+                transition: all 0.3s;
+            }
+
+            .btn-sync:hover {
+                background: rgba(255,255,0,0.3);
+                transform: scale(1.05);
+            }
+
+            .btn-sync:active {
+                background: rgba(255,255,0,0.5);
+            }
+
+            .bpm-display {
+                font-size: 14px;
+                font-weight: bold;
+                color: #ffff00;
+                padding: 5px;
+                background: rgba(0,0,0,0.3);
+                border-radius: 3px;
+            }
+
+            .master-section {
+                text-align: center;
+            }
+
+            .master-bpm {
+                font-size: 14px;
+                font-weight: bold;
+                color: #ffff00;
+                margin-bottom: 10px;
+            }
+
+            .master-volume label {
+                display: block;
+                font-size: 10px;
+                margin-bottom: 5px;
+            }
+
+            .volume-slider {
+                width: 100%;
+                height: 8px;
+                background: linear-gradient(to right, #000, #ffff00, #fff);
+                outline: none;
+                border-radius: 4px;
+            }
+
+            .vu-meters {
+                display: flex;
+                justify-content: space-around;
+                gap: 10px;
+            }
+
+            .vu-meter {
+                width: 20px;
+                height: 100px;
+                background: rgba(0,0,0,0.8);
+                border: 1px solid #333;
+                border-radius: 3px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .vu-bar {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(to top, #00ff00, #ffff00, #ff0000);
+                height: var(--vu-height, 0%);
+                transition: height 0.1s;
+            }
+
+            .beat-matching-section {
+                text-align: center;
+                padding: 10px;
+                background: rgba(0,255,255,0.1);
+                border-radius: 5px;
+                border: 1px solid #00ffff;
+            }
+
+            .beat-matching-section label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 10px;
+                color: #00ffff;
+                font-weight: bold;
+            }
+
+            .beat-indicators {
+                display: flex;
+                justify-content: space-around;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+
+            .beat-indicator {
+                text-align: center;
+                padding: 5px;
+                background: rgba(0,0,0,0.3);
+                border-radius: 3px;
+                border: 1px solid #333;
+            }
+
+            .beat-light {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: #333;
+                margin: 0 auto 5px;
+                transition: all 0.1s;
+            }
+
+            .beat-light.active {
+                background: #00ff00;
+                box-shadow: 0 0 10px #00ff00;
+                animation: beatPulse 0.2s ease-in-out;
+            }
+
+            .beat-indicator span {
+                display: block;
+                font-size: 10px;
+                color: #888;
+            }
+
+            .sync-status {
+                font-size: 12px;
+                font-weight: bold;
+                padding: 5px;
+                background: rgba(255,0,0,0.2);
+                border: 1px solid #ff0000;
+                border-radius: 3px;
+                color: #ff0000;
+            }
+
+            .sync-status.synced {
+                background: rgba(0,255,0,0.2);
+                border-color: #00ff00;
+                color: #00ff00;
+            }
+
+            .sync-status.close {
+                background: rgba(255,255,0,0.2);
+                border-color: #ffff00;
+                color: #ffff00;
+            }
+
+            @keyframes beatPulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.2); }
+                100% { transform: scale(1); }
+            }
+
+            @media (max-width: 1200px) {
+                .dj-mixer-container {
                     grid-template-columns: 1fr;
-                    gap: 10px;
+                    grid-template-rows: auto auto auto;
                 }
-
-                .waveform-container {
-                    height: 80px;
-                }
-
-                .visualizers {
-                    flex-direction: column;
-                    align-items: center;
-                }
-
-                .transport-controls {
-                    flex-wrap: wrap;
-                }
-
-                .transport-btn {
-                    padding: 8px 12px;
-                    font-size: 1em;
+                
+                .mixer-section {
+                    flex-direction: row;
+                    justify-content: space-around;
                 }
             }
         `;
         document.head.appendChild(style);
+        console.log('✅ Estilos techno aplicados para 2 decks');
     }
 
-    async setupAudioContext() {
-        try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-            // Crear nodos de audio
-            this.analyser = this.audioContext.createAnalyser();
-            this.gainNode = this.audioContext.createGain();
-            this.biquadFilter = this.audioContext.createBiquadFilter();
-
-            // Configurar analyser
-            this.analyser.fftSize = 2048;
-            this.analyser.smoothingTimeConstant = 0.8;
-
-            // Configurar conexiones
-            this.source = this.audioContext.createBufferSource();
-            this.source.connect(this.biquadFilter);
-            this.biquadFilter.connect(this.gainNode);
-            this.gainNode.connect(this.analyser);
-            this.analyser.connect(this.audioContext.destination);
-
-            // Configurar efectos
-            this.setupEffects();
-
-            console.log('🎵 AudioContext configurado para DJ Console');
-        } catch (error) {
-            console.error('❌ Error configurando AudioContext:', error);
-        }
-    }
-
-    setupEffects() {
-        // Reverb
-        this.convolver = this.audioContext.createConvolver();
-        this.createReverbImpulse();
-
-        // Delay
-        this.delayNode = this.audioContext.createDelay(2);
-        this.delayNode.delayTime.value = 0.5;
-        const delayFeedback = this.audioContext.createGain();
-        delayFeedback.gain.value = 0.3;
-        this.delayNode.connect(delayFeedback);
-        delayFeedback.connect(this.delayNode);
-
-        // Distortion
-        this.distortion = this.audioContext.createWaveShaper();
-        this.distortion.curve = this.makeDistortionCurve(0);
-
-        // Phaser (usando filtro)
-        this.phaser = this.audioContext.createBiquadFilter();
-        this.phaser.type = 'notch';
-        this.phaser.frequency.value = 1000;
-        this.phaser.Q.value = 10;
-    }
-
+    // 🆕 EVENT LISTENERS PARA 2 DECKS
     setupEventListeners() {
-        // Controles de transporte
-        if (this.elements.playBtn) {
-            this.elements.playBtn.addEventListener('click', () => this.play());
+        // Transport Deck A
+        if (this.elements.playA) {
+            this.elements.playA.addEventListener('click', () => this.playDeckA());
         }
-        if (this.elements.pauseBtn) {
-            this.elements.pauseBtn.addEventListener('click', () => this.pause());
+        if (this.elements.pauseA) {
+            this.elements.pauseA.addEventListener('click', () => this.pauseDeckA());
         }
-        if (this.elements.stopBtn) {
-            this.elements.stopBtn.addEventListener('click', () => this.stop());
+        if (this.elements.stopA) {
+            this.elements.stopA.addEventListener('click', () => this.stopDeckA());
         }
-        if (this.elements.prevTrackBtn) {
-            this.elements.prevTrackBtn.addEventListener('click', () => this.prevTrack());
-        }
-        if (this.elements.nextTrackBtn) {
-            this.elements.nextTrackBtn.addEventListener('click', () => this.nextTrack());
+        if (document.getElementById('cueA')) {
+            document.getElementById('cueA').addEventListener('click', () => this.cueDeckA());
         }
 
-        // Crossfader y tempo
+        // Transport Deck B
+        if (this.elements.playB) {
+            this.elements.playB.addEventListener('click', () => this.playDeckB());
+        }
+        if (this.elements.pauseB) {
+            this.elements.pauseB.addEventListener('click', () => this.pauseDeckB());
+        }
+        if (this.elements.stopB) {
+            this.elements.stopB.addEventListener('click', () => this.stopDeckB());
+        }
+        if (document.getElementById('cueB')) {
+            document.getElementById('cueB').addEventListener('click', () => this.cueDeckB());
+        }
+
+        // EQ Deck A
+        if (this.elements.eqLowA) {
+            this.elements.eqLowA.addEventListener('input', (e) => {
+                this.deckA.eq.low = parseFloat(e.target.value);
+                this.updateEQ('A');
+            });
+        }
+        if (this.elements.eqMidA) {
+            this.elements.eqMidA.addEventListener('input', (e) => {
+                this.deckA.eq.mid = parseFloat(e.target.value);
+                this.updateEQ('A');
+            });
+        }
+        if (this.elements.eqHighA) {
+            this.elements.eqHighA.addEventListener('input', (e) => {
+                this.deckA.eq.high = parseFloat(e.target.value);
+                this.updateEQ('A');
+            });
+        }
+
+        // EQ Deck B
+        if (this.elements.eqLowB) {
+            this.elements.eqLowB.addEventListener('input', (e) => {
+                this.deckB.eq.low = parseFloat(e.target.value);
+                this.updateEQ('B');
+            });
+        }
+        if (this.elements.eqMidB) {
+            this.elements.eqMidB.addEventListener('input', (e) => {
+                this.deckB.eq.mid = parseFloat(e.target.value);
+                this.updateEQ('B');
+            });
+        }
+        if (this.elements.eqHighB) {
+            this.elements.eqHighB.addEventListener('input', (e) => {
+                this.deckB.eq.high = parseFloat(e.target.value);
+                this.updateEQ('B');
+            });
+        }
+
+        // Tempo Deck A
+        if (this.elements.tempoA) {
+            this.elements.tempoA.addEventListener('input', (e) => {
+                this.deckA.tempo = parseFloat(e.target.value) / 100;
+                this.updateTempo('A');
+            });
+        }
+
+        // Tempo Deck B
+        if (this.elements.tempoB) {
+            this.elements.tempoB.addEventListener('input', (e) => {
+                this.deckB.tempo = parseFloat(e.target.value) / 100;
+                this.updateTempo('B');
+            });
+        }
+
+        // Track Loaders
+        if (this.elements.loadTrackA) {
+            this.elements.loadTrackA.addEventListener('click', () => {
+                const trackSelect = this.elements.trackSelectA.value;
+                if (trackSelect) {
+                    this.loadTrackForDeck('A', `/Music/${trackSelect}.mp3`);
+                }
+            });
+        }
+
+        if (this.elements.loadTrackB) {
+            this.elements.loadTrackB.addEventListener('click', () => {
+                const trackSelect = this.elements.trackSelectB.value;
+                if (trackSelect) {
+                    this.loadTrackForDeck('B', `/Music/${trackSelect}.mp3`);
+                }
+            });
+        }
+
+        // Crossfader y Master
         if (this.elements.crossfader) {
             this.elements.crossfader.addEventListener('input', (e) => {
-                this.crossfader = parseFloat(e.target.value);
+                this.crossfader = parseFloat(e.target.value) / 100;
                 this.updateCrossfader();
             });
         }
 
-        if (this.elements.crossfaderCurve) {
-            this.elements.crossfaderCurve.addEventListener('input', (e) => {
-                this.crossfaderCurve = parseFloat(e.target.value);
+        if (this.elements.masterVolume) {
+            this.elements.masterVolume.addEventListener('input', (e) => {
+                this.masterVolume = parseFloat(e.target.value) / 100;
+                this.updateMasterVolume();
             });
         }
 
-        if (this.elements.tempoControl) {
-            this.elements.tempoControl.addEventListener('input', (e) => {
-                this.tempo = parseFloat(e.target.value);
-                this.updateTempo();
-            });
+        // BPM Sync buttons
+        const syncAtoB = document.getElementById('syncAtoB');
+        const syncBtoA = document.getElementById('syncBtoA');
+        
+        if (syncAtoB) {
+            syncAtoB.addEventListener('click', () => this.syncBPM('A', 'B'));
+        }
+        
+        if (syncBtoA) {
+            syncBtoA.addEventListener('click', () => this.syncBPM('B', 'A'));
         }
 
-        if (this.elements.tempoReset) {
-            this.elements.tempoReset.addEventListener('click', () => {
-                this.tempo = 1.0;
-                if (this.elements.tempoControl) {
-                    this.elements.tempoControl.value = 1.0;
-                }
-                this.updateTempo();
-            });
+        // Cue Points Deck A
+        for (let i = 1; i <= 4; i++) {
+            const cueBtn = document.getElementById(`cue${i}A`);
+            if (cueBtn) {
+                cueBtn.addEventListener('click', () => this.toggleCuePoint('A', i));
+            }
         }
 
-        // EQ
-        if (this.elements.eqLow) {
-            this.elements.eqLow.addEventListener('input', (e) => {
-                this.eq.low = parseFloat(e.target.value);
-                this.updateEQ();
-            });
+        // Cue Points Deck B
+        for (let i = 1; i <= 4; i++) {
+            const cueBtn = document.getElementById(`cue${i}B`);
+            if (cueBtn) {
+                cueBtn.addEventListener('click', () => this.toggleCuePoint('B', i));
+            }
         }
 
-        if (this.elements.eqMid) {
-            this.elements.eqMid.addEventListener('input', (e) => {
-                this.eq.mid = parseFloat(e.target.value);
-                this.updateEQ();
-            });
-        }
-
-        if (this.elements.eqHigh) {
-            this.elements.eqHigh.addEventListener('input', (e) => {
-                this.eq.high = parseFloat(e.target.value);
-                this.updateEQ();
-            });
-        }
-
-        // Kill switches
-        if (this.elements.killLow) {
-            this.elements.killLow.addEventListener('click', () => this.toggleKill('low'));
-        }
-        if (this.elements.killMid) {
-            this.elements.killMid.addEventListener('click', () => this.toggleKill('mid'));
-        }
-        if (this.elements.killHigh) {
-            this.elements.killHigh.addEventListener('click', () => this.toggleKill('high'));
-        }
-
-        // Filtro
-        if (this.elements.filterType) {
-            this.elements.filterType.addEventListener('change', (e) => {
-                this.filter.type = e.target.value;
-                this.updateFilter();
-            });
-        }
-
-        if (this.elements.filterFreq) {
-            this.elements.filterFreq.addEventListener('input', (e) => {
-                this.filter.frequency = parseFloat(e.target.value);
-                this.updateFilter();
-            });
-        }
-
-        if (this.elements.filterQ) {
-            this.elements.filterQ.addEventListener('input', (e) => {
-                this.filter.Q = parseFloat(e.target.value);
-                this.updateFilter();
-            });
-        }
-
-        // Hot Cues
-        document.querySelectorAll('.cue-btn').forEach((btn, index) => {
-            btn.addEventListener('click', () => this.setCuePoint(index));
-        });
-
-        // Loop controls
-        const setLoopInBtn = document.getElementById('setLoopIn');
-        if (setLoopInBtn) {
-            setLoopInBtn.addEventListener('click', () => this.setLoopIn());
-        }
-
-        const setLoopOutBtn = document.getElementById('setLoopOut');
-        if (setLoopOutBtn) {
-            setLoopOutBtn.addEventListener('click', () => this.setLoopOut());
-        }
-
-        const toggleLoopBtn = document.getElementById('toggleLoop');
-        if (toggleLoopBtn) {
-            toggleLoopBtn.addEventListener('click', () => this.toggleLoop());
-        }
-
-        // Efectos
-        if (this.elements.toggleEffects) {
-            this.elements.toggleEffects.addEventListener('click', () => this.toggleEffectsPanel());
-        }
-
-        if (this.elements.reverbMix) {
-            this.elements.reverbMix.addEventListener('input', (e) => {
-                this.effects.reverb.mix = parseFloat(e.target.value);
-                this.updateReverb();
-            });
-        }
-
-        if (this.elements.reverbDecay) {
-            this.elements.reverbDecay.addEventListener('input', (e) => {
-                this.effects.reverb.decay = parseFloat(e.target.value);
-                this.updateReverb();
-            });
-        }
-
-        if (this.elements.delayTime) {
-            this.elements.delayTime.addEventListener('input', (e) => {
-                this.effects.delay.time = parseFloat(e.target.value);
-                this.updateDelay();
-            });
-        }
-
-        if (this.elements.delayFeedback) {
-            this.elements.delayFeedback.addEventListener('input', (e) => {
-                this.effects.delay.feedback = parseFloat(e.target.value);
-                this.updateDelay();
-            });
-        }
-
-        if (this.elements.distortionDrive) {
-            this.elements.distortionDrive.addEventListener('input', (e) => {
-                this.effects.distortion.drive = parseFloat(e.target.value);
-                this.updateDistortion();
-            });
-        }
-
-        if (this.elements.phaserRate) {
-            this.elements.phaserRate.addEventListener('input', (e) => {
-                this.effects.phaser.rate = parseFloat(e.target.value);
-                this.updatePhaser();
-            });
-        }
-
-        // Waveform interaction
-        if (this.elements.mainWaveform) {
-            this.elements.mainWaveform.addEventListener('click', (e) => this.scrubToPosition(e));
-        }
-
-        // BPM detection
-        this.detectBPM();
-
-        // Visual updates
-        this.startVisualization();
+        console.log('✅ Event listeners configurados para 2 decks');
     }
 
-    async loadDefaultTrack() {
+    // Métodos para Deck A
+    async loadTrackForDeck(deck, trackUrl) {
         try {
-            const response = await fetch('/Music/track1.mp3');
-            const arrayBuffer = await response.arrayBuffer();
-            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-            this.elements.trackName.textContent = '🎵 4 - dR.iAn';
-            this.elements.trackArtist.textContent = 'TECHNO TRACK';
-            this.duration = this.audioBuffer.duration;
-            this.updateTimeDisplay();
-
-            console.log('🎵 Track cargado en DJ Console');
-        } catch (error) {
-            console.error('❌ Error cargando track:', error);
-        }
-    }
-
-    play() {
-        if (!this.audioBuffer) return;
-
-        if (this.source && this.isPlaying) {
-            this.source.stop();
-        }
-
-        this.source = this.audioContext.createBufferSource();
-        this.source.buffer = this.audioBuffer;
-        this.source.playbackRate.value = this.tempo;
-
-        // Reconectar con efectos
-        this.reconnectAudioGraph();
-
-        this.source.start(0, this.currentTime);
-        this.isPlaying = true;
-
-        this.startTime = this.audioContext.currentTime - this.currentTime;
-        this.updatePlayhead();
-
-        console.log('▶️ Reproducción iniciada en DJ Console');
-    }
-
-    pause() {
-        if (this.source) {
-            this.source.stop();
-            this.currentTime = this.audioContext.currentTime - this.startTime;
-        }
-        this.isPlaying = false;
-        console.log('⏸️ Reproducción pausada');
-    }
-
-    stop() {
-        this.pause();
-        this.currentTime = 0;
-        this.updatePlayhead();
-        console.log('⏹️ Reproducción detenida');
-    }
-
-    nextTrack() {
-        // Implementar cambio de track
-        console.log('⏭️ Siguiente track');
-    }
-
-    prevTrack() {
-        // Implementar cambio de track
-        console.log('⏮️ Track anterior');
-    }
-
-    updateCrossfader() {
-        // Implementar crossfader con curva ajustable
-        const curve = Math.pow(this.crossfader, this.crossfaderCurve);
-        this.gainNode.gain.value = curve * this.volume;
-    }
-
-    updateTempo() {
-        if (this.source) {
-            this.source.playbackRate.value = this.tempo;
-        }
-        this.elements.tempoDisplay.textContent = Math.round(this.tempo * 100) + '%';
-    }
-
-    updateEQ() {
-        // Implementar EQ 3-bandas
-        console.log('🎚️ EQ actualizado:', this.eq);
-    }
-
-    toggleKill(band) {
-        this.killSwitches[band] = !this.killSwitches[band];
-        const btn = this.elements[`kill${band.charAt(0).toUpperCase() + band.slice(1)}`];
-        btn.classList.toggle('active', this.killSwitches[band]);
-
-        if (this.killSwitches[band]) {
-            // Aplicar kill (ganancia muy baja)
-            this.eq[band] = -60;
-        } else {
-            // Reset a 0
-            this.eq[band] = 0;
-        }
-        this.updateEQ();
-    }
-
-    updateFilter() {
-        if (this.filter.type === 'off') {
-            // Bypass filter
-            this.biquadFilter.frequency.value = 20000;
-            this.biquadFilter.Q.value = 0.1;
-        } else {
-            this.biquadFilter.type = this.filter.type;
-            this.biquadFilter.frequency.value = this.filter.frequency;
-            this.biquadFilter.Q.value = this.filter.Q;
-        }
-    }
-
-    setCuePoint(index) {
-        if (!this.isPlaying) return;
-
-        this.cuePoints[index] = this.currentTime;
-        this.updateCuePoints();
-        console.log(`🎯 Cue point ${index + 1} establecido en ${this.currentTime}s`);
-    }
-
-    setLoopIn() {
-        this.loopRegion.start = this.currentTime;
-        this.updateLoopRegion();
-        console.log('🔄 Loop IN establecido');
-    }
-
-    setLoopOut() {
-        this.loopRegion.end = this.currentTime;
-        this.updateLoopRegion();
-        console.log('🔄 Loop OUT establecido');
-    }
-
-    toggleLoop() {
-        this.loopRegion.active = !this.loopRegion.active;
-        document.getElementById('toggleLoop').classList.toggle('active', this.loopRegion.active);
-        console.log('🔄 Loop', this.loopRegion.active ? 'activado' : 'desactivado');
-    }
-
-    toggleEffectsPanel() {
-        const controls = this.elements.effectsPanel.querySelector('.effects-controls');
-        controls.classList.toggle('active');
-    }
-
-    updateReverb() {
-        // Implementar reverb
-        console.log('🌊 Reverb actualizado:', this.effects.reverb);
-    }
-
-    updateDelay() {
-        if (this.delayNode) {
-            this.delayNode.delayTime.value = this.effects.delay.time;
-            // Actualizar feedback
-        }
-        console.log('⏰ Delay actualizado:', this.effects.delay);
-    }
-
-    updateDistortion() {
-        if (this.distortion) {
-            this.distortion.curve = this.makeDistortionCurve(this.effects.distortion.drive);
-        }
-        console.log('🔊 Distortion actualizado:', this.effects.distortion);
-    }
-
-    updatePhaser() {
-        if (this.phaser) {
-            // Implementar LFO para phaser
-            const now = this.audioContext.currentTime;
-            this.phaser.frequency.setValueAtTime(
-                1000 + Math.sin(now * this.effects.phaser.rate * 2 * Math.PI) * 500,
-                now
-            );
-        }
-        console.log('🌈 Phaser actualizado:', this.effects.phaser);
-    }
-
-    makeDistortionCurve(amount) {
-        const k = typeof amount === 'number' ? amount : 50;
-        const n_samples = 44100;
-        const curve = new Float32Array(n_samples);
-        const deg = Math.PI / 180;
-
-        for (let i = 0; i < n_samples; ++i) {
-            const x = i * 2 / n_samples - 1;
-            curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
-        }
-        return curve;
-    }
-
-    scrubToPosition(event) {
-        const rect = this.elements.mainWaveform.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const ratio = x / rect.width;
-        this.currentTime = ratio * this.duration;
-        this.updatePlayhead();
-
-        if (this.isPlaying) {
-            this.pause();
-            this.play();
-        }
-    }
-
-    detectBPM() {
-        // Implementar detección de BPM básica
-        this.bpm = 128; // Placeholder
-        this.elements.bpmDisplay.textContent = `BPM: ${this.bpm}`;
-    }
-
-    reconnectAudioGraph() {
-        // Reconectar el source con todos los efectos
-        this.source.disconnect();
-
-        let lastNode = this.source;
-
-        // Filtro
-        if (this.filter.type !== 'off') {
-            lastNode.connect(this.biquadFilter);
-            lastNode = this.biquadFilter;
-        }
-
-        // Efectos
-        if (this.effects.reverb.mix > 0) {
-            const reverbGain = this.audioContext.createGain();
-            reverbGain.gain.value = this.effects.reverb.mix;
-            lastNode.connect(reverbGain);
-            reverbGain.connect(this.convolver);
-            lastNode.connect(this.gainNode);
-            this.convolver.connect(this.gainNode);
-        }
-
-        if (this.effects.delay.time > 0) {
-            lastNode.connect(this.delayNode);
-            this.delayNode.connect(this.gainNode);
-        }
-
-        if (this.effects.distortion.drive > 0) {
-            lastNode.connect(this.distortion);
-            this.distortion.connect(this.gainNode);
-        }
-
-        if (this.effects.phaser.rate > 0) {
-            lastNode.connect(this.phaser);
-            this.phaser.connect(this.gainNode);
-        }
-
-        // Conectar a analyser y output
-        lastNode.connect(this.gainNode);
-        this.gainNode.connect(this.analyser);
-        this.analyser.connect(this.audioContext.destination);
-    }
-
-    startVisualization() {
-        const animate = () => {
-            requestAnimationFrame(animate);
-
-            if (this.isPlaying) {
-                this.updatePlayhead();
-                this.updateTimeDisplay();
-            }
-
-            // 🆕 Verificar que los métodos existen antes de llamarlos
-            if (typeof this.drawSpectrum === 'function') {
-                this.drawSpectrum();
-            }
-            if (typeof this.drawCircularBPM === 'function') {
-                this.drawCircularBPM();
-            }
-        };
-
-        animate();
-    }
-
-    // 🆕 AGREGAR MÉTODOS FALTANTES PARA EVITAR ERRORES
-    drawSpectrum() {
-        if (!this.analyser || !this.spectrumCtx) return;
-
-        const bufferLength = this.analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        this.analyser.getByteFrequencyData(dataArray);
-
-        const canvas = this.elements.spectrumViz;
-        const ctx = this.spectrumCtx;
-        const width = canvas.width;
-        const height = canvas.height;
-
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, width, height);
-
-        const barWidth = (width / bufferLength) * 2.5;
-        let barHeight;
-        let x = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-            barHeight = (dataArray[i] / 255) * height;
-
-            const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
-            gradient.addColorStop(0, '#00ffff');
-            gradient.addColorStop(1, '#ff00ff');
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(x, height - barHeight, barWidth, barHeight);
-
-            x += barWidth + 1;
-        }
-    }
-
-    drawCircularBPM() {
-        if (!this.circularCtx) return;
-
-        const canvas = this.elements.circularBPM;
-        const ctx = this.circularCtx;
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = Math.min(centerX, centerY) - 5;
-
-        // Limpiar canvas
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Dibujar círculo base
-        ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.stroke();
-
-        // Dibujar BPM visual
-        const bpmAngle = (this.bpm / 200) * 2 * Math.PI; // Normalizar BPM
-        ctx.strokeStyle = '#ff00ff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius - 5, -Math.PI / 2, bpmAngle - Math.PI / 2);
-        ctx.stroke();
-
-        // Texto BPM
-        ctx.fillStyle = '#ffff00';
-        ctx.font = '10px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.bpm.toString(), centerX, centerY + 4);
-    }
-
-    // 🆕 AGREGAR MÉTODOS FALTANTES PARA CUE POINTS Y LOOP
-    updateCuePoints() {
-        if (!this.elements.cuePoints) return;
-
-        // Limpiar cue points existentes
-        this.elements.cuePoints.innerHTML = '';
-
-        // Dibujar cue points
-        this.cuePoints.forEach((time, index) => {
-            if (time !== null && this.duration > 0) {
-                const ratio = time / this.duration;
-                const canvasWidth = this.elements.mainWaveform.width;
-                const left = ratio * canvasWidth;
-
-                const cueElement = document.createElement('div');
-                cueElement.className = 'cue-point';
-                cueElement.style.left = left + 'px';
-                cueElement.title = `Cue ${index + 1}: ${this.formatTime(time)}`;
-                cueElement.addEventListener('click', () => {
-                    this.currentTime = time;
-                    this.updatePlayhead();
-                    if (this.isPlaying) {
-                        this.pause();
-                        this.play();
-                    }
-                });
-
-                this.elements.cuePoints.appendChild(cueElement);
-            }
-        });
-    }
-
-    updateLoopRegion() {
-        if (!this.elements.loopRegion) return;
-
-        // Limpiar loop region existente
-        this.elements.loopRegion.innerHTML = '';
-
-        if (this.loopRegion.start !== null && this.loopRegion.end !== null && this.duration > 0) {
-            const startRatio = this.loopRegion.start / this.duration;
-            const endRatio = this.loopRegion.end / this.duration;
-            const canvasWidth = this.elements.mainWaveform.width;
-
-            const loopElement = document.createElement('div');
-            loopElement.className = 'loop-region-active';
-            loopElement.style.left = (startRatio * canvasWidth) + 'px';
-            loopElement.style.width = ((endRatio - startRatio) * canvasWidth) + 'px';
-            loopElement.style.height = '100%';
-            loopElement.style.background = 'rgba(255, 255, 0, 0.3)';
-            loopElement.style.borderLeft = '2px solid #ffff00';
-            loopElement.style.borderRight = '2px solid #ffff00';
-            loopElement.style.position = 'absolute';
-            loopElement.style.top = '0';
-            loopElement.style.pointerEvents = 'none';
-
-            this.elements.loopRegion.appendChild(loopElement);
-        }
-    }
-
-    // 🆕 AGREGAR MÉTODO PARA CREAR IMPULSE RESPONSE PARA REVERB
-    createReverbImpulse() {
-        if (!this.audioContext) return;
-
-        const length = this.audioContext.sampleRate * this.effects.reverb.decay;
-        const impulse = this.audioContext.createBuffer(2, length, this.audioContext.sampleRate);
-
-        for (let channel = 0; channel < 2; channel++) {
-            const channelData = impulse.getChannelData(channel);
-            for (let i = 0; i < length; i++) {
-                channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, this.effects.reverb.decay);
-            }
-        }
-
-        if (this.convolver) {
-            this.convolver.buffer = impulse;
-        }
-    }
-
-    updatePlayhead() {
-        if (!this.isPlaying) return;
-
-        this.currentTime = this.audioContext.currentTime - this.startTime;
-        if (this.currentTime >= this.duration) {
-            this.currentTime = 0;
-            this.stop();
-            return;
-        }
-
-        const ratio = this.currentTime / this.duration;
-        const canvasWidth = this.elements.mainWaveform.width;
-        this.elements.playhead.style.left = (ratio * canvasWidth) + 'px';
-    }
-
-    updateTimeDisplay() {
-        const current = this.formatTime(this.currentTime);
-        const total = this.formatTime(this.duration);
-
-        this.elements.currentTime.textContent = current;
-        this.elements.totalTime.textContent = total;
-    }
-
-    formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    // 🆕 SETUP TRACK LOADER - NUEVA FUNCIONALIDAD
-    setupTrackLoader() {
-        const sourceLibraryBtn = document.getElementById('sourceLibrary');
-        const sourceUploadBtn = document.getElementById('sourceUpload');
-        const trackSelect = document.getElementById('trackSelect');
-        const fileInput = document.getElementById('fileInput');
-        const fileInputLabel = document.querySelector('.file-input-label');
-        const loadTrackBtn = document.getElementById('loadTrackBtn');
-
-        // Selector de fuente
-        sourceLibraryBtn.addEventListener('click', () => {
-            sourceLibraryBtn.classList.add('active');
-            sourceUploadBtn.classList.remove('active');
-            trackSelect.style.display = 'block';
-            fileInputLabel.style.display = 'none';
-        });
-
-        sourceUploadBtn.addEventListener('click', () => {
-            sourceUploadBtn.classList.add('active');
-            sourceLibraryBtn.classList.remove('active');
-            trackSelect.style.display = 'none';
-            fileInputLabel.style.display = 'block';
-        });
-
-        // Cargar desde biblioteca
-        loadTrackBtn.addEventListener('click', async () => {
-            const selectedTrack = trackSelect.value;
-            if (selectedTrack) {
-                await this.loadTrackFromLibrary(selectedTrack);
-            }
-        });
-
-        // Cargar archivo subido
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                await this.loadTrackFromFile(file);
-            }
-        });
-
-        console.log('🎵 Track loader configurado');
-    }
-
-    // 🆕 CARGAR TRACK DESDE BIBLIOTECA
-    async loadTrackFromLibrary(trackUrl) {
-        try {
-            console.log('🎵 Cargando track desde biblioteca:', trackUrl);
-            this.elements.trackName.textContent = 'CARGANDO...';
-            this.elements.trackArtist.textContent = 'Procesando audio...';
+            console.log(`🎵 Cargando track para Deck ${deck}:`, trackUrl);
+            const deckData = deck === 'A' ? this.deckA : this.deckB;
+            
+            // Actualizar UI
+            const trackNameEl = deck === 'A' ? this.elements.trackNameA : this.elements.trackNameB;
+            const trackArtistEl = deck === 'A' ? this.elements.trackArtistA : this.elements.trackArtistB;
+            
+            if (trackNameEl) trackNameEl.textContent = 'CARGANDO...';
+            if (trackArtistEl) trackArtistEl.textContent = 'Procesando audio...';
 
             const response = await fetch(trackUrl);
             const arrayBuffer = await response.arrayBuffer();
-            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            deckData.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
 
-            // Extraer nombre del track desde la URL
+            // Extraer nombre del track
             const trackName = trackUrl.split('/').pop().split('.')[0];
             const trackNames = {
                 'track1': '🎵 4 - dR.iAn',
@@ -1383,45 +978,646 @@ class DJConsole {
                 'acontratiempo': '🎵 A Contratiempo - Demian Cobo ft. Daniel Tejeda'
             };
 
-            this.elements.trackName.textContent = trackNames[trackName] || trackName;
-            this.elements.trackArtist.textContent = 'DJMESH LIBRARY';
-            this.duration = this.audioBuffer.duration;
-            this.currentTime = 0;
-            this.updateTimeDisplay();
-            this.detectBPM();
+            if (trackNameEl) trackNameEl.textContent = trackNames[trackName] || trackName;
+            if (trackArtistEl) trackArtistEl.textContent = 'DJMESH LIBRARY';
+            
+            deckData.duration = deckData.audioBuffer.duration;
+            deckData.currentTime = 0;
+            deckData.currentTrack = trackUrl;
+            
+            this.updateTimeDisplay(deck);
+            this.detectBPM(deck);
+            this.drawWaveform(deck);
 
-            console.log('✅ Track cargado desde biblioteca:', trackName);
+            console.log(`✅ Track cargado en Deck ${deck}:`, trackName);
         } catch (error) {
-            console.error('❌ Error cargando track desde biblioteca:', error);
-            this.elements.trackName.textContent = 'ERROR CARGANDO';
-            this.elements.trackArtist.textContent = 'Intenta de nuevo';
+            console.error(`❌ Error cargando track en Deck ${deck}:`, error);
+            const trackNameEl = deck === 'A' ? this.elements.trackNameA : this.elements.trackNameB;
+            const trackArtistEl = deck === 'A' ? this.elements.trackArtistA : this.elements.trackArtistB;
+            
+            if (trackNameEl) trackNameEl.textContent = 'ERROR CARGANDO';
+            if (trackArtistEl) trackArtistEl.textContent = 'Intenta de nuevo';
         }
     }
 
-    // 🆕 CARGAR TRACK DESDE ARCHIVO SUBIDO
-    async loadTrackFromFile(file) {
-        try {
-            console.log('🎵 Cargando archivo subido:', file.name);
-            this.elements.trackName.textContent = 'CARGANDO...';
-            this.elements.trackArtist.textContent = 'Procesando archivo...';
+    playDeckA() {
+        this.playDeck('A');
+    }
 
-            const arrayBuffer = await file.arrayBuffer();
-            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    pauseDeckA() {
+        this.pauseDeck('A');
+    }
 
-            // Extraer nombre del archivo sin extensión
-            const fileName = file.name.replace(/\.[^/.]+$/, '');
-            this.elements.trackName.textContent = `🎵 ${fileName}`;
-            this.elements.trackArtist.textContent = 'ARCHIVO SUBIDO';
-            this.duration = this.audioBuffer.duration;
-            this.currentTime = 0;
-            this.updateTimeDisplay();
-            this.detectBPM();
+    stopDeckA() {
+        this.stopDeck('A');
+    }
 
-            console.log('✅ Archivo cargado:', fileName);
-        } catch (error) {
-            console.error('❌ Error cargando archivo:', error);
-            this.elements.trackName.textContent = 'ERROR CARGANDO';
-            this.elements.trackArtist.textContent = 'Archivo no válido';
+    cueDeckA() {
+        this.cueDeck('A');
+    }
+
+    playDeckB() {
+        this.playDeck('B');
+    }
+
+    pauseDeckB() {
+        this.pauseDeck('B');
+    }
+
+    stopDeckB() {
+        this.stopDeck('B');
+    }
+
+    cueDeckB() {
+        this.cueDeck('B');
+    }
+
+    playDeck(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        if (!deckData.audioBuffer || deckData.isPlaying) return;
+
+        // Crear nuevo source
+        deckData.source = this.audioContext.createBufferSource();
+        deckData.source.buffer = deckData.audioBuffer;
+        
+        // Crear nodes de audio
+        deckData.gainNode = this.audioContext.createGain();
+        deckData.analyser = this.audioContext.createAnalyser();
+        
+        // Aplicar tempo
+        deckData.source.playbackRate.value = deckData.tempo;
+        
+        // Conectar nodes con crossfader
+        deckData.source.connect(deckData.gainNode);
+        deckData.gainNode.connect(deckData.analyser);
+        
+        // Conectar al master crossfader
+        this.connectDeckToMaster(deck);
+        
+        // Iniciar reproducción
+        deckData.source.start(0, deckData.currentTime);
+        deckData.isPlaying = true;
+        
+        // Actualizar UI
+        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
+        if (statusEl) {
+            statusEl.textContent = 'PLAYING';
+            statusEl.style.background = 'rgba(0,255,0,0.3)';
+            statusEl.style.borderColor = '#00ff00';
+            statusEl.style.color = '#00ff00';
         }
+        
+        // Iniciar animación
+        this.animateDeck(deck);
+        
+        // Iniciar beat matching
+        this.startBeatMatching(deck);
+        
+        console.log(`▶️ Deck ${deck} playing`);
+    }
+
+    pauseDeck(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        if (!deckData.isPlaying) return;
+
+        deckData.source.stop();
+        deckData.isPlaying = false;
+        
+        // Detener beat matching
+        this.stopBeatMatching(deck);
+
+        // Actualizar UI
+        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
+        if (statusEl) {
+            statusEl.textContent = 'PAUSED';
+            statusEl.style.background = 'rgba(255,255,0,0.2)';
+            statusEl.style.borderColor = '#ffff00';
+            statusEl.style.color = '#ffff00';
+        }
+        
+        console.log(`⏸️ Deck ${deck} paused`);
+    }
+
+    stopDeck(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (deckData.source) {
+            deckData.source.stop();
+        }
+        
+        deckData.isPlaying = false;
+        deckData.currentTime = 0;
+        
+        // Detener beat matching
+        this.stopBeatMatching(deck);
+
+        // Actualizar UI
+        const statusEl = deck === 'A' ? this.elements.deckAStatus : this.elements.deckBStatus;
+        if (statusEl) {
+            statusEl.textContent = 'STOPPED';
+            statusEl.style.background = 'rgba(255,0,0,0.2)';
+            statusEl.style.borderColor = '#ff0000';
+            statusEl.style.color = '#ff0000';
+        }
+        
+        this.updateTimeDisplay(deck);
+        this.updatePlayhead(deck);
+
+        console.log(`⏹️ Deck ${deck} stopped`);
+    }
+
+    cueDeck(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (deckData.isPlaying) {
+            this.pauseDeck(deck);
+        }
+        
+        deckData.currentTime = 0;
+        this.updateTimeDisplay(deck);
+        this.updatePlayhead(deck);
+        
+        console.log(`⏮️ Deck ${deck} cued to start`);
+    }
+
+    animateDeck(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (!deckData.isPlaying) return;
+        
+        deckData.currentTime += 0.016 * deckData.tempo; // ~60fps
+        
+        if (deckData.currentTime >= deckData.duration) {
+            this.stopDeck(deck);
+            return;
+        }
+        
+        this.updateTimeDisplay(deck);
+        this.updatePlayhead(deck);
+        this.updateVUMeters(deck);
+        
+        requestAnimationFrame(() => this.animateDeck(deck));
+    }
+
+    updateTimeDisplay(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const currentEl = deck === 'A' ? this.elements.currentTimeA : this.elements.currentTimeB;
+        const totalEl = deck === 'A' ? this.elements.totalTimeA : this.elements.totalTimeB;
+        
+        if (currentEl) {
+            currentEl.textContent = this.formatTime(deckData.currentTime);
+        }
+        if (totalEl) {
+            totalEl.textContent = this.formatTime(deckData.duration);
+        }
+    }
+
+    updatePlayhead(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const playheadEl = deck === 'A' ? this.elements.playheadA : this.elements.playheadB;
+        
+        if (playheadEl && deckData.duration > 0) {
+            const progress = (deckData.currentTime / deckData.duration) * 100;
+            playheadEl.style.left = `${progress}%`;
+        }
+    }
+
+    updateVUMeters(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        if (!deckData.analyser) return;
+        
+        const dataArray = new Uint8Array(deckData.analyser.frequencyBinCount);
+        deckData.analyser.getByteFrequencyData(dataArray);
+        
+        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        const normalized = average / 255;
+        
+        // Actualizar VU meters si existen
+        const vuMeter = deck === 'A' ? 'vuMeterA' : 'vuMeterB';
+        const vuBar = document.getElementById(vuMeter);
+        if (vuBar) {
+            const height = normalized * 100;
+            vuBar.style.setProperty('--vu-height', `${height}%`);
+        }
+    }
+
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    detectBPM(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const bpmEl = deck === 'A' ? this.elements.trackArtistA : this.elements.trackArtistB;
+        
+        // BPM simulado por ahora - implementar detección real más tarde
+        const simulatedBPM = 120 + Math.floor(Math.random() * 40);
+        deckData.bpm = simulatedBPM;
+        
+        if (bpmEl) {
+            bpmEl.textContent = `${deckData.bpm} BPM`;
+        }
+        
+        // Actualizar master BPM usando el nuevo método
+        this.updateMasterBPM();
+    }
+
+    drawWaveform(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const canvas = deck === 'A' ? this.elements.waveformA : this.elements.waveformB;
+        const ctx = deck === 'A' ? this.waveformCtxA : this.waveformCtxB;
+        
+        if (!canvas || !ctx || !deckData.audioBuffer) return;
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const data = deckData.audioBuffer.getChannelData(0);
+        
+        // Limpiar canvas
+        ctx.clearRect(0, 0, width, height);
+        
+        // Dibujar waveform
+        ctx.fillStyle = '#00ff88';
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 1;
+        
+        const sliceWidth = width / data.length;
+        let x = 0;
+        
+        for (let i = 0; i < data.length; i++) {
+            const v = data[i];
+            const y = (v + 1) / 2 * height;
+            
+            if (i === 0) {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+            
+            x += sliceWidth;
+        }
+        
+        ctx.stroke();
+        
+        console.log(`🌊 Waveform dibujado para Deck ${deck}`);
+    }
+
+    connectDeckToMaster(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        
+        // Conectar el analyser al crossfader gain
+        deckData.analyser.connect(deckData.crossfaderGain);
+        
+        // Aplicar configuración inicial del crossfader
+        this.updateCrossfader();
+    }
+
+    updateCrossfader() {
+        const crossfaderValue = this.crossfader; // 0 = full A, 1 = full B, 0.5 = center
+        
+        // Calcular ganancias para crossfader lineal
+        let gainA, gainB;
+        
+        if (crossfaderValue <= 0.5) {
+            // Crossfader a la izquierda (Deck A dominante)
+            gainA = 1.0;
+            gainB = crossfaderValue * 2; // 0 a 1
+        } else {
+            // Crossfader a la derecha (Deck B dominante)
+            gainA = (1 - crossfaderValue) * 2; // 1 a 0
+            gainB = 1.0;
+        }
+        
+        // Aplicar ganancias con curva opcional
+        if (this.crossfaderCurve === 1) {
+            // Curva suave (power)
+            gainA = Math.sqrt(gainA);
+            gainB = Math.sqrt(gainB);
+        }
+        
+        // Aplicar ganancias a los crossfader gains
+        if (this.deckA.crossfaderGain) {
+            this.deckA.crossfaderGain.gain.value = gainA * this.deckA.volume;
+        }
+        if (this.deckB.crossfaderGain) {
+            this.deckB.crossfaderGain.gain.value = gainB * this.deckB.volume;
+        }
+        
+        // Actualizar UI visual del crossfader
+        if (this.elements.crossfader) {
+            const percentage = crossfaderValue * 100;
+            this.elements.crossfader.value = percentage;
+        }
+        
+        console.log(`🎛️ Crossfader: A=${gainA.toFixed(2)}, B=${gainB.toFixed(2)}`);
+    }
+
+    updateMasterVolume() {
+        console.log(`🎛️ Master Volume: ${this.masterVolume}`);
+        
+        // Aplicar volumen al master gain node
+        if (this.masterGainNode) {
+            this.masterGainNode.gain.value = this.masterVolume;
+        }
+        
+        // Actualizar display
+        if (this.elements.masterVolumeDisplay) {
+            this.elements.masterVolumeDisplay.textContent = `${Math.round(this.masterVolume * 100)}%`;
+        }
+    }
+
+    updateEQ(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        console.log(`🎛️ EQ ${deck}:`, deckData.eq);
+        
+        // Aquí implementaríamos EQ real con filters
+        // Por ahora solo actualizamos los displays
+        if (deck === 'A') {
+            if (this.elements.eqLowA) this.elements.eqLowA.textContent = deckData.eq.low;
+            if (this.elements.eqMidA) this.elements.eqMidA.textContent = deckData.eq.mid;
+            if (this.elements.eqHighA) this.elements.eqHighA.textContent = deckData.eq.high;
+        } else {
+            if (this.elements.eqLowB) this.elements.eqLowB.textContent = deckData.eq.low;
+            if (this.elements.eqMidB) this.elements.eqMidB.textContent = deckData.eq.mid;
+            if (this.elements.eqHighB) this.elements.eqHighB.textContent = deckData.eq.high;
+        }
+    }
+
+    updateTempo(deck) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        console.log(`🎛️ Tempo ${deck}: ${deckData.tempo}x`);
+        
+        // Actualizar tempo del source si está reproduciendo
+        if (deckData.source && deckData.isPlaying) {
+            deckData.source.playbackRate.value = deckData.tempo;
+        }
+        
+        // Actualizar display si existe
+        const tempoDisplay = deck === 'A' ? this.elements.tempoDisplayA : this.elements.tempoDisplayB;
+        if (tempoDisplay) {
+            tempoDisplay.textContent = `${(deckData.tempo * 100).toFixed(0)}%`;
+        }
+    }
+
+    syncBPM(sourceDeck, targetDeck) {
+        const sourceData = sourceDeck === 'A' ? this.deckA : this.deckB;
+        const targetData = targetDeck === 'A' ? this.deckA : this.deckB;
+        
+        if (!sourceData.bpm || !targetData.audioBuffer) {
+            console.log(`❌ No se puede sincronizar BPM: Deck ${sourceDeck} no tiene BPM o Deck ${targetDeck} no tiene track`);
+            return;
+        }
+        
+        // Calcular el tempo necesario para igualar BPMs
+        const sourceBPM = sourceData.bpm;
+        const targetOriginalBPM = targetData.bpm;
+        const tempoMultiplier = sourceBPM / targetOriginalBPM;
+        
+        // Limitar el tempo a un rango razonable (50% - 200%)
+        const clampedTempo = Math.max(0.5, Math.min(2.0, tempoMultiplier));
+        
+        // Aplicar el tempo al deck objetivo
+        targetData.tempo = clampedTempo;
+        
+        // Actualizar el slider y display
+        const tempoSlider = targetDeck === 'A' ? this.elements.tempoA : this.elements.tempoB;
+        const tempoDisplay = targetDeck === 'A' ? this.elements.tempoDisplayA : this.elements.tempoDisplayB;
+        
+        if (tempoSlider) {
+            tempoSlider.value = clampedTempo * 100;
+        }
+        
+        if (tempoDisplay) {
+            tempoDisplay.textContent = `${(clampedTempo * 100).toFixed(0)}%`;
+        }
+        
+        // Actualizar BPM del deck objetivo
+        targetData.bpm = sourceBPM;
+        
+        // Actualizar displays de BPM
+        const targetArtistEl = targetDeck === 'A' ? this.elements.trackArtistA : this.elements.trackArtistB;
+        if (targetArtistEl) {
+            targetArtistEl.textContent = `${targetData.bpm} BPM`;
+        }
+        
+        // Actualizar master BPM
+        this.updateMasterBPM();
+        
+        // Verificar beat sync después de sincronizar
+        this.checkBeatSync();
+        
+        // Actualizar display de sincronización
+        const syncDisplay = document.getElementById('bpmSyncDisplay');
+        if (syncDisplay) {
+            syncDisplay.textContent = `BPM: ${sourceBPM} (SYNCED)`;
+            syncDisplay.style.color = '#00ff00';
+            
+            // Resetear el color después de 2 segundos
+            setTimeout(() => {
+                syncDisplay.style.color = '#ffff00';
+                syncDisplay.textContent = `BPM: ${sourceBPM}`;
+            }, 2000);
+        }
+        
+        console.log(`🔄 BPM sincronizado: Deck ${sourceDeck} (${sourceBPM}) → Deck ${targetDeck} (${targetData.bpm})`);
+    }
+
+    updateMasterBPM() {
+        // Calcular master BPM promedio
+        if (this.deckA.bpm && this.deckB.bpm) {
+            this.masterBpm = Math.round((this.deckA.bpm + this.deckB.bpm) / 2);
+        } else if (this.deckA.bpm) {
+            this.masterBpm = this.deckA.bpm;
+        } else if (this.deckB.bpm) {
+            this.masterBpm = this.deckB.bpm;
+        }
+        
+        // Actualizar display
+        if (this.elements.masterBpm) {
+            this.elements.masterBpm.textContent = `MASTER BPM: ${this.masterBpm}`;
+        }
+    }
+
+    startBeatMatching(deck) {
+        if (!this.beatMatching.enabled) return;
+        
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        if (!deckData.isPlaying || !deckData.bpm) return;
+        
+        // Calcular intervalo de beat basado en BPM
+        const beatInterval = 60000 / deckData.bpm; // milisegundos por beat
+        
+        if (deck === 'A') {
+            this.beatMatching.beatIntervalA = beatInterval;
+            this.startBeatIndicator('A');
+        } else {
+            this.beatMatching.beatIntervalB = beatInterval;
+            this.startBeatIndicator('B');
+        }
+        
+        this.checkBeatSync();
+    }
+
+    stopBeatMatching(deck) {
+        if (deck === 'A') {
+            if (this.beatMatching.beatTimerA) {
+                clearInterval(this.beatMatching.beatTimerA);
+                this.beatMatching.beatTimerA = null;
+            }
+            this.stopBeatIndicator('A');
+        } else {
+            if (this.beatMatching.beatTimerB) {
+                clearInterval(this.beatMatching.beatTimerB);
+                this.beatMatching.beatTimerB = null;
+            }
+            this.stopBeatIndicator('B');
+        }
+        
+        this.checkBeatSync();
+    }
+
+    startBeatIndicator(deck) {
+        const beatLight = document.querySelector(`#beatIndicator${deck} .beat-light`);
+        if (!beatLight) return;
+        
+        const interval = deck === 'A' ? this.beatMatching.beatIntervalA : this.beatMatching.beatIntervalB;
+        
+        if (deck === 'A') {
+            this.beatMatching.beatTimerA = setInterval(() => {
+                beatLight.classList.add('active');
+                setTimeout(() => beatLight.classList.remove('active'), 100);
+            }, interval);
+        } else {
+            this.beatMatching.beatTimerB = setInterval(() => {
+                beatLight.classList.add('active');
+                setTimeout(() => beatLight.classList.remove('active'), 100);
+            }, interval);
+        }
+    }
+
+    stopBeatIndicator(deck) {
+        const beatLight = document.querySelector(`#beatIndicator${deck} .beat-light`);
+        if (beatLight) {
+            beatLight.classList.remove('active');
+        }
+    }
+
+    checkBeatSync() {
+        const syncStatus = document.getElementById('syncStatus');
+        if (!syncStatus) return;
+        
+        const bothPlaying = this.deckA.isPlaying && this.deckB.isPlaying;
+        const bothHaveBPM = this.deckA.bpm && this.deckB.bpm;
+        
+        if (!bothPlaying || !bothHaveBPM) {
+            syncStatus.textContent = 'NO SYNC';
+            syncStatus.className = 'sync-status';
+            return;
+        }
+        
+        // Calcular diferencia de BPM
+        const bpmDiff = Math.abs(this.deckA.bpm - this.deckB.bpm);
+        const bpmRatio = Math.min(this.deckA.bpm, this.deckB.bpm) / Math.max(this.deckA.bpm, this.deckB.bpm);
+        
+        if (bpmDiff <= 1) {
+            // Perfect sync
+            syncStatus.textContent = 'SYNCED';
+            syncStatus.className = 'sync-status synced';
+        } else if (bpmRatio >= 0.95) {
+            // Close sync
+            syncStatus.textContent = 'CLOSE';
+            syncStatus.className = 'sync-status close';
+        } else {
+            // No sync
+            syncStatus.textContent = 'NO SYNC';
+            syncStatus.className = 'sync-status';
+        }
+    }
+
+    toggleCuePoint(deck, cueNumber) {
+        const deckData = deck === 'A' ? this.deckA : this.deckB;
+        const cueBtn = document.getElementById(`cue${cueNumber}${deck}`);
+        
+        if (!deckData.audioBuffer) return;
+        
+        if (deckData.cuePoints[cueNumber - 1] === null) {
+            // Set cue point
+            deckData.cuePoints[cueNumber - 1] = deckData.currentTime;
+            if (cueBtn) {
+                cueBtn.classList.add('active');
+                cueBtn.textContent = `CUE${cueNumber}`;
+            }
+            console.log(`📍 Cue ${cueNumber} set en Deck ${deck}: ${deckData.currentTime.toFixed(2)}s`);
+        } else {
+            // Clear cue point
+            deckData.cuePoints[cueNumber - 1] = null;
+            if (cueBtn) {
+                cueBtn.classList.remove('active');
+                cueBtn.textContent = `CUE${cueNumber}`;
+            }
+            console.log(`🗑️ Cue ${cueNumber} cleared en Deck ${deck}`);
+        }
+    }
+
+    // Inicialización
+    async init() {
+        console.log('🎛️ Inicializando DJ Console...');
+        
+        // Crear audio context
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Crear master nodes para crossfader
+        this.masterGainNode = this.audioContext.createGain();
+        this.masterGainNode.gain.value = this.masterVolume;
+        
+        // Crear gain nodes para cada deck (para crossfader)
+        this.deckA.crossfaderGain = this.audioContext.createGain();
+        this.deckB.crossfaderGain = this.audioContext.createGain();
+        
+        // Conectar crossfader gains al master
+        this.deckA.crossfaderGain.connect(this.masterGainNode);
+        this.deckB.crossfaderGain.connect(this.masterGainNode);
+        
+        // Conectar master al destino
+        this.masterGainNode.connect(this.audioContext.destination);
+        
+        // Crear estructura HTML
+        this.createConsole();
+        
+        // Cache de elementos
+        this.cacheElements();
+        
+        // Aplicar estilos
+        this.applyTechnoStyling();
+        
+        // Setup event listeners
+        this.setupEventListeners();
+        
+        // Inicializar canvas contexts
+        if (this.elements.waveformA) {
+            this.waveformCtxA = this.elements.waveformA.getContext('2d');
+        }
+        if (this.elements.waveformB) {
+            this.waveformCtxB = this.elements.waveformB.getContext('2d');
+        }
+        
+        console.log('✅ DJ Console inicializado');
     }
 }
+
+// Inicializar la DJ Console cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🎛️ DOM listo, creando DJ Console...');
+    
+    // Crear la estructura HTML de la consola
+    const djConsole = new DJConsole();
+    await djConsole.init();
+    
+    // Hacer global para debugging
+    window.djConsole = djConsole;
+    
+    console.log('✅ DJ Console lista para usar');
+});
