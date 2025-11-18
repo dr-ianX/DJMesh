@@ -57,10 +57,8 @@ class DJConsole {
             console.log('🎛️ Configurando event listeners...');
             this.setupEventListeners();
 
-            console.log('🎛️ Cargando track por defecto...');
-            await this.loadDefaultTrack();
-
-            console.log('✅ DJ Console lista');
+            // 🆕 NO cargar track por defecto - esperar selección del usuario
+            console.log('✅ DJ Console lista - esperando selección de track');
         } catch (error) {
             console.error('❌ Error inicializando DJ Console:', error);
             console.error('Stack trace:', error.stack);
@@ -69,29 +67,53 @@ class DJConsole {
     }
 
     createConsoleUI() {
-        // Reemplazar el reproductor simple con la consola avanzada
-        const oldPlayer = document.getElementById('musicPlayerContainer');
-        if (oldPlayer) oldPlayer.remove();
+        // 🆕 TRACK LOADER PRIMERO
+        const trackLoaderHTML = `
+            <div class="track-loader">
+                <h3>🎵 SELECCIONAR TRACK</h3>
+                <div class="track-source-selector">
+                    <button class="source-btn active" id="sourceLibrary">📚 Biblioteca DJMesh</button>
+                    <button class="source-btn" id="sourceUpload">📁 Subir Archivo</button>
+                </div>
+                <div class="track-selector">
+                    <select class="track-select" id="trackSelect" style="display: block;">
+                        <option value="">🎵 Selecciona un track...</option>
+                        <option value="/Music/track1.mp3">🎵 4 - dR.iAn</option>
+                        <option value="/Music/mereconozco.mp3">🎵 Me Reconozco - Rodrigo Escamilla</option>
+                        <option value="/Music/mariutodalanoche.mp3">🎵 Toda La Noche - Mariu</option>
+                        <option value="/Music/acontratiempo.mp3">🎵 A Contratiempo - Demian Cobo ft. Daniel Tejeda</option>
+                    </select>
+                    <input type="file" class="file-input" id="fileInput" accept="audio/*">
+                    <label for="fileInput" class="file-input-label" style="display: none;">📁 Elegir archivo...</label>
+                    <button class="source-btn" id="loadTrackBtn">🎵 CARGAR TRACK</button>
+                </div>
+            </div>
+        `;
 
+        // Insertar track loader antes de la consola
+        const consoleDiv = document.getElementById('dj-console');
+        consoleDiv.insertAdjacentHTML('afterbegin', trackLoaderHTML);
+
+        // Reemplazar el contenido de la consola con diseño más compacto
         const consoleHTML = `
             <div class="dj-console" id="djConsole">
-                <!-- 🖥️ PANTALLA PRINCIPAL OLED-STYLE -->
+                <!-- 🖥️ PANTALLA OLED COMPACTA -->
                 <div class="console-screen">
                     <div class="oled-display">
                         <div class="track-info">
-                            <span class="track-name" id="trackName">DJMESH - CONSOLE</span>
-                            <span class="track-artist" id="trackArtist">TECHNO CONTEMPORÁNEO</span>
-                            <span class="bpm-display" id="bpmDisplay">BPM: 128</span>
+                            <span class="track-name" id="trackName">SIN TRACK CARGADO</span>
+                            <span class="track-artist" id="trackArtist">SELECCIONA UN TRACK</span>
+                            <span class="bpm-display" id="bpmDisplay">BPM: ---</span>
                         </div>
                         <div class="time-display">
-                            <span id="currentTime">00:00</span>
-                            <span id="totalTime">00:00</span>
+                            <span id="currentTime">--:--</span>
+                            <span id="totalTime">--:--</span>
                         </div>
                     </div>
 
-                    <!-- 🎵 WAVEFORM INTERACTIVA -->
+                    <!-- 🎵 WAVEFORM COMPACTA -->
                     <div class="waveform-container">
-                        <canvas id="mainWaveform" width="800" height="120"></canvas>
+                        <canvas id="mainWaveform" width="600" height="80"></canvas>
                         <div class="waveform-overlay">
                             <div class="cue-points" id="cuePoints"></div>
                             <div class="loop-region" id="loopRegion"></div>
@@ -99,16 +121,15 @@ class DJConsole {
                         </div>
                     </div>
 
-                    <!-- 📊 VISUALIZADORES MÚLTIPLES -->
+                    <!-- 📊 VISUALIZADORES -->
                     <div class="visualizers">
-                        <canvas id="spectrumViz" width="200" height="80"></canvas>
-                        <canvas id="circularBPM" width="80" height="80"></canvas>
+                        <canvas id="spectrumViz" width="150" height="60"></canvas>
+                        <canvas id="circularBPM" width="60" height="60"></canvas>
                     </div>
                 </div>
 
-                <!-- 🎚️ CONTROLES PROFESIONALES -->
+                <!-- 🎚️ CONTROLES MIXER -->
                 <div class="console-controls">
-                    <!-- CROSSFADER Y TEMPO -->
                     <div class="mixer-section">
                         <div class="crossfader-container">
                             <label>Crossfader</label>
@@ -131,17 +152,17 @@ class DJConsole {
                     <div class="eq-section">
                         <div class="eq-band">
                             <label>LOW</label>
-                            <input type="range" id="eqLow" min="-20" max="20" step="1" value="0">
+                            <input type="range" id="eqLow" min="-20" max="20" step="1" value="0" orient="vertical">
                             <button id="killLow" class="kill-btn">KILL</button>
                         </div>
                         <div class="eq-band">
                             <label>MID</label>
-                            <input type="range" id="eqMid" min="-20" max="20" step="1" value="0">
+                            <input type="range" id="eqMid" min="-20" max="20" step="1" value="0" orient="vertical">
                             <button id="killMid" class="kill-btn">KILL</button>
                         </div>
                         <div class="eq-band">
                             <label>HIGH</label>
-                            <input type="range" id="eqHigh" min="-20" max="20" step="1" value="0">
+                            <input type="range" id="eqHigh" min="-20" max="20" step="1" value="0" orient="vertical">
                             <button id="killHigh" class="kill-btn">KILL</button>
                         </div>
                     </div>
@@ -154,50 +175,45 @@ class DJConsole {
                             <option value="highpass">HP</option>
                             <option value="bandpass">BP</option>
                         </select>
-                        <input type="range" id="filterFreq" min="20" max="20000" step="10" value="1000">
-                        <input type="range" id="filterQ" min="0.1" max="10" step="0.1" value="1">
-                    </div>
-
-                    <!-- HOT CUES -->
-                    <div class="cues-section">
-                        <div class="cue-buttons">
-                            ${Array.from({length: 8}, (_, i) =>
-                                `<button class="cue-btn" data-cue="${i+1}">CUE ${i+1}</button>`
-                            ).join('')}
-                        </div>
-                        <div class="loop-controls">
-                            <button id="setLoopIn">IN</button>
-                            <button id="setLoopOut">OUT</button>
-                            <button id="toggleLoop">LOOP</button>
+                        <div class="filter-controls">
+                            <input type="range" id="filterFreq" min="20" max="20000" step="10" value="1000">
+                            <input type="range" id="filterQ" min="0.1" max="10" step="0.1" value="1">
                         </div>
                     </div>
                 </div>
 
-                <!-- ✨ EFECTOS EXPANDIBLES -->
+                <!-- 🎯 HOT CUES Y LOOP -->
+                <div class="cues-section">
+                    <div class="cue-buttons">
+                        ${Array.from({length: 8}, (_, i) =>
+                            `<button class="cue-btn" data-cue="${i+1}">CUE ${i+1}</button>`
+                        ).join('')}
+                    </div>
+                    <div class="loop-controls">
+                        <button id="setLoopIn">IN</button>
+                        <button id="setLoopOut">OUT</button>
+                        <button id="toggleLoop">LOOP</button>
+                    </div>
+                </div>
+
+                <!-- ✨ EFECTOS -->
                 <div class="effects-panel" id="effectsPanel">
                     <button id="toggleEffects" class="effects-toggle">🎛️ EFFECTS</button>
                     <div class="effects-controls">
-                        <!-- REVERB -->
                         <div class="effect-control">
                             <label>REVERB</label>
                             <input type="range" id="reverbMix" min="0" max="1" step="0.01" value="0">
                             <input type="range" id="reverbDecay" min="0.1" max="5" step="0.1" value="2">
                         </div>
-
-                        <!-- DELAY -->
                         <div class="effect-control">
                             <label>DELAY</label>
                             <input type="range" id="delayTime" min="0.1" max="2" step="0.01" value="0.5">
                             <input type="range" id="delayFeedback" min="0" max="0.9" step="0.01" value="0.3">
                         </div>
-
-                        <!-- DISTORTION -->
                         <div class="effect-control">
                             <label>DISTORTION</label>
                             <input type="range" id="distortionDrive" min="0" max="1" step="0.01" value="0">
                         </div>
-
-                        <!-- PHASER -->
                         <div class="effect-control">
                             <label>PHASER</label>
                             <input type="range" id="phaserRate" min="0" max="10" step="0.1" value="0.5">
@@ -205,26 +221,20 @@ class DJConsole {
                     </div>
                 </div>
 
-                <!-- 🎮 CONTROLES DE TRANSPORTE -->
+                <!-- 🎮 TRANSPORTE -->
                 <div class="transport-controls">
-                    <button id="playBtn" class="transport-btn">▶️</button>
-                    <button id="pauseBtn" class="transport-btn">⏸️</button>
-                    <button id="stopBtn" class="transport-btn">⏹️</button>
-                    <button id="prevTrackBtn" class="transport-btn">⏮️</button>
-                    <button id="nextTrackBtn" class="transport-btn">⏭️</button>
-                </div>
-
-                <!-- 📱 MENSAJE PARA MÓVILES -->
-                <div id="mobileDJHelp" class="mobile-help" style="display: none;">
-                    🎛️ DJ Console activada - Toca para controlar
+                    <button id="playBtn" class="transport-btn">▶️ PLAY</button>
+                    <button id="pauseBtn" class="transport-btn">⏸️ PAUSE</button>
+                    <button id="stopBtn" class="transport-btn">⏹️ STOP</button>
                 </div>
             </div>
         `;
 
-        document.body.insertAdjacentHTML('beforeend', consoleHTML);
+        consoleDiv.insertAdjacentHTML('beforeend', consoleHTML);
         this.cacheElements();
         this.applyTechnoStyling();
-        console.log('🎛️ UI de DJ Console creada');
+        this.setupTrackLoader();
+        console.log('🎛️ UI de DJ Console creada con track loader');
     }
 
     cacheElements() {
@@ -1223,5 +1233,110 @@ class DJConsole {
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // 🆕 SETUP TRACK LOADER - NUEVA FUNCIONALIDAD
+    setupTrackLoader() {
+        const sourceLibraryBtn = document.getElementById('sourceLibrary');
+        const sourceUploadBtn = document.getElementById('sourceUpload');
+        const trackSelect = document.getElementById('trackSelect');
+        const fileInput = document.getElementById('fileInput');
+        const fileInputLabel = document.querySelector('.file-input-label');
+        const loadTrackBtn = document.getElementById('loadTrackBtn');
+
+        // Selector de fuente
+        sourceLibraryBtn.addEventListener('click', () => {
+            sourceLibraryBtn.classList.add('active');
+            sourceUploadBtn.classList.remove('active');
+            trackSelect.style.display = 'block';
+            fileInputLabel.style.display = 'none';
+        });
+
+        sourceUploadBtn.addEventListener('click', () => {
+            sourceUploadBtn.classList.add('active');
+            sourceLibraryBtn.classList.remove('active');
+            trackSelect.style.display = 'none';
+            fileInputLabel.style.display = 'block';
+        });
+
+        // Cargar desde biblioteca
+        loadTrackBtn.addEventListener('click', async () => {
+            const selectedTrack = trackSelect.value;
+            if (selectedTrack) {
+                await this.loadTrackFromLibrary(selectedTrack);
+            }
+        });
+
+        // Cargar archivo subido
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await this.loadTrackFromFile(file);
+            }
+        });
+
+        console.log('🎵 Track loader configurado');
+    }
+
+    // 🆕 CARGAR TRACK DESDE BIBLIOTECA
+    async loadTrackFromLibrary(trackUrl) {
+        try {
+            console.log('🎵 Cargando track desde biblioteca:', trackUrl);
+            this.elements.trackName.textContent = 'CARGANDO...';
+            this.elements.trackArtist.textContent = 'Procesando audio...';
+
+            const response = await fetch(trackUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+            // Extraer nombre del track desde la URL
+            const trackName = trackUrl.split('/').pop().split('.')[0];
+            const trackNames = {
+                'track1': '🎵 4 - dR.iAn',
+                'mereconozco': '🎵 Me Reconozco - Rodrigo Escamilla',
+                'mariutodalanoche': '🎵 Toda La Noche - Mariu',
+                'acontratiempo': '🎵 A Contratiempo - Demian Cobo ft. Daniel Tejeda'
+            };
+
+            this.elements.trackName.textContent = trackNames[trackName] || trackName;
+            this.elements.trackArtist.textContent = 'DJMESH LIBRARY';
+            this.duration = this.audioBuffer.duration;
+            this.currentTime = 0;
+            this.updateTimeDisplay();
+            this.detectBPM();
+
+            console.log('✅ Track cargado desde biblioteca:', trackName);
+        } catch (error) {
+            console.error('❌ Error cargando track desde biblioteca:', error);
+            this.elements.trackName.textContent = 'ERROR CARGANDO';
+            this.elements.trackArtist.textContent = 'Intenta de nuevo';
+        }
+    }
+
+    // 🆕 CARGAR TRACK DESDE ARCHIVO SUBIDO
+    async loadTrackFromFile(file) {
+        try {
+            console.log('🎵 Cargando archivo subido:', file.name);
+            this.elements.trackName.textContent = 'CARGANDO...';
+            this.elements.trackArtist.textContent = 'Procesando archivo...';
+
+            const arrayBuffer = await file.arrayBuffer();
+            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+            // Extraer nombre del archivo sin extensión
+            const fileName = file.name.replace(/\.[^/.]+$/, '');
+            this.elements.trackName.textContent = `🎵 ${fileName}`;
+            this.elements.trackArtist.textContent = 'ARCHIVO SUBIDO';
+            this.duration = this.audioBuffer.duration;
+            this.currentTime = 0;
+            this.updateTimeDisplay();
+            this.detectBPM();
+
+            console.log('✅ Archivo cargado:', fileName);
+        } catch (error) {
+            console.error('❌ Error cargando archivo:', error);
+            this.elements.trackName.textContent = 'ERROR CARGANDO';
+            this.elements.trackArtist.textContent = 'Archivo no válido';
+        }
     }
 }
