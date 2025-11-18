@@ -2200,6 +2200,7 @@ class DJConsole {
         this.updateFilter();
         this.updateDistortion();
         this.updatePhaser();
+        this.updateGate();
         
         console.log('✅ All effects reset to defaults');
     }
@@ -2354,6 +2355,7 @@ class DJConsole {
         this.updateFilter();
         this.updateDistortion();
         this.updatePhaser();
+        this.updateGate();
         
         // Update UI
         this.updateEffectsUI();
