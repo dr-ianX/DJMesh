@@ -292,10 +292,16 @@ class DJConsole {
         this.elements.prevTrackBtn = document.getElementById('prevTrackBtn');
         this.elements.nextTrackBtn = document.getElementById('nextTrackBtn');
 
-        // Canvas contexts
-        this.waveformCtx = this.elements.mainWaveform.getContext('2d');
-        this.spectrumCtx = this.elements.spectrumViz.getContext('2d');
-        this.circularCtx = this.elements.circularBPM.getContext('2d');
+        // Canvas contexts - con verificación
+        if (this.elements.mainWaveform) {
+            this.waveformCtx = this.elements.mainWaveform.getContext('2d');
+        }
+        if (this.elements.spectrumViz) {
+            this.spectrumCtx = this.elements.spectrumViz.getContext('2d');
+        }
+        if (this.elements.circularBPM) {
+            this.circularCtx = this.elements.circularBPM.getContext('2d');
+        }
     }
 
     applyTechnoStyling() {
@@ -672,69 +678,107 @@ class DJConsole {
 
     setupEventListeners() {
         // Controles de transporte
-        this.elements.playBtn.addEventListener('click', () => this.play());
-        this.elements.pauseBtn.addEventListener('click', () => this.pause());
-        this.elements.stopBtn.addEventListener('click', () => this.stop());
-        this.elements.prevTrackBtn.addEventListener('click', () => this.prevTrack());
-        this.elements.nextTrackBtn.addEventListener('click', () => this.nextTrack());
+        if (this.elements.playBtn) {
+            this.elements.playBtn.addEventListener('click', () => this.play());
+        }
+        if (this.elements.pauseBtn) {
+            this.elements.pauseBtn.addEventListener('click', () => this.pause());
+        }
+        if (this.elements.stopBtn) {
+            this.elements.stopBtn.addEventListener('click', () => this.stop());
+        }
+        if (this.elements.prevTrackBtn) {
+            this.elements.prevTrackBtn.addEventListener('click', () => this.prevTrack());
+        }
+        if (this.elements.nextTrackBtn) {
+            this.elements.nextTrackBtn.addEventListener('click', () => this.nextTrack());
+        }
 
         // Crossfader y tempo
-        this.elements.crossfader.addEventListener('input', (e) => {
-            this.crossfader = parseFloat(e.target.value);
-            this.updateCrossfader();
-        });
+        if (this.elements.crossfader) {
+            this.elements.crossfader.addEventListener('input', (e) => {
+                this.crossfader = parseFloat(e.target.value);
+                this.updateCrossfader();
+            });
+        }
 
-        this.elements.crossfaderCurve.addEventListener('input', (e) => {
-            this.crossfaderCurve = parseFloat(e.target.value);
-        });
+        if (this.elements.crossfaderCurve) {
+            this.elements.crossfaderCurve.addEventListener('input', (e) => {
+                this.crossfaderCurve = parseFloat(e.target.value);
+            });
+        }
 
-        this.elements.tempoControl.addEventListener('input', (e) => {
-            this.tempo = parseFloat(e.target.value);
-            this.updateTempo();
-        });
+        if (this.elements.tempoControl) {
+            this.elements.tempoControl.addEventListener('input', (e) => {
+                this.tempo = parseFloat(e.target.value);
+                this.updateTempo();
+            });
+        }
 
-        this.elements.tempoReset.addEventListener('click', () => {
-            this.tempo = 1.0;
-            this.elements.tempoControl.value = 1.0;
-            this.updateTempo();
-        });
+        if (this.elements.tempoReset) {
+            this.elements.tempoReset.addEventListener('click', () => {
+                this.tempo = 1.0;
+                if (this.elements.tempoControl) {
+                    this.elements.tempoControl.value = 1.0;
+                }
+                this.updateTempo();
+            });
+        }
 
         // EQ
-        this.elements.eqLow.addEventListener('input', (e) => {
-            this.eq.low = parseFloat(e.target.value);
-            this.updateEQ();
-        });
+        if (this.elements.eqLow) {
+            this.elements.eqLow.addEventListener('input', (e) => {
+                this.eq.low = parseFloat(e.target.value);
+                this.updateEQ();
+            });
+        }
 
-        this.elements.eqMid.addEventListener('input', (e) => {
-            this.eq.mid = parseFloat(e.target.value);
-            this.updateEQ();
-        });
+        if (this.elements.eqMid) {
+            this.elements.eqMid.addEventListener('input', (e) => {
+                this.eq.mid = parseFloat(e.target.value);
+                this.updateEQ();
+            });
+        }
 
-        this.elements.eqHigh.addEventListener('input', (e) => {
-            this.eq.high = parseFloat(e.target.value);
-            this.updateEQ();
-        });
+        if (this.elements.eqHigh) {
+            this.elements.eqHigh.addEventListener('input', (e) => {
+                this.eq.high = parseFloat(e.target.value);
+                this.updateEQ();
+            });
+        }
 
         // Kill switches
-        this.elements.killLow.addEventListener('click', () => this.toggleKill('low'));
-        this.elements.killMid.addEventListener('click', () => this.toggleKill('mid'));
-        this.elements.killHigh.addEventListener('click', () => this.toggleKill('high'));
+        if (this.elements.killLow) {
+            this.elements.killLow.addEventListener('click', () => this.toggleKill('low'));
+        }
+        if (this.elements.killMid) {
+            this.elements.killMid.addEventListener('click', () => this.toggleKill('mid'));
+        }
+        if (this.elements.killHigh) {
+            this.elements.killHigh.addEventListener('click', () => this.toggleKill('high'));
+        }
 
         // Filtro
-        this.elements.filterType.addEventListener('change', (e) => {
-            this.filter.type = e.target.value;
-            this.updateFilter();
-        });
+        if (this.elements.filterType) {
+            this.elements.filterType.addEventListener('change', (e) => {
+                this.filter.type = e.target.value;
+                this.updateFilter();
+            });
+        }
 
-        this.elements.filterFreq.addEventListener('input', (e) => {
-            this.filter.frequency = parseFloat(e.target.value);
-            this.updateFilter();
-        });
+        if (this.elements.filterFreq) {
+            this.elements.filterFreq.addEventListener('input', (e) => {
+                this.filter.frequency = parseFloat(e.target.value);
+                this.updateFilter();
+            });
+        }
 
-        this.elements.filterQ.addEventListener('input', (e) => {
-            this.filter.Q = parseFloat(e.target.value);
-            this.updateFilter();
-        });
+        if (this.elements.filterQ) {
+            this.elements.filterQ.addEventListener('input', (e) => {
+                this.filter.Q = parseFloat(e.target.value);
+                this.updateFilter();
+            });
+        }
 
         // Hot Cues
         document.querySelectorAll('.cue-btn').forEach((btn, index) => {
@@ -742,45 +786,72 @@ class DJConsole {
         });
 
         // Loop controls
-        document.getElementById('setLoopIn').addEventListener('click', () => this.setLoopIn());
-        document.getElementById('setLoopOut').addEventListener('click', () => this.setLoopOut());
-        document.getElementById('toggleLoop').addEventListener('click', () => this.toggleLoop());
+        const setLoopInBtn = document.getElementById('setLoopIn');
+        if (setLoopInBtn) {
+            setLoopInBtn.addEventListener('click', () => this.setLoopIn());
+        }
+
+        const setLoopOutBtn = document.getElementById('setLoopOut');
+        if (setLoopOutBtn) {
+            setLoopOutBtn.addEventListener('click', () => this.setLoopOut());
+        }
+
+        const toggleLoopBtn = document.getElementById('toggleLoop');
+        if (toggleLoopBtn) {
+            toggleLoopBtn.addEventListener('click', () => this.toggleLoop());
+        }
 
         // Efectos
-        this.elements.toggleEffects.addEventListener('click', () => this.toggleEffectsPanel());
+        if (this.elements.toggleEffects) {
+            this.elements.toggleEffects.addEventListener('click', () => this.toggleEffectsPanel());
+        }
 
-        this.elements.reverbMix.addEventListener('input', (e) => {
-            this.effects.reverb.mix = parseFloat(e.target.value);
-            this.updateReverb();
-        });
+        if (this.elements.reverbMix) {
+            this.elements.reverbMix.addEventListener('input', (e) => {
+                this.effects.reverb.mix = parseFloat(e.target.value);
+                this.updateReverb();
+            });
+        }
 
-        this.elements.reverbDecay.addEventListener('input', (e) => {
-            this.effects.reverb.decay = parseFloat(e.target.value);
-            this.updateReverb();
-        });
+        if (this.elements.reverbDecay) {
+            this.elements.reverbDecay.addEventListener('input', (e) => {
+                this.effects.reverb.decay = parseFloat(e.target.value);
+                this.updateReverb();
+            });
+        }
 
-        this.elements.delayTime.addEventListener('input', (e) => {
-            this.effects.delay.time = parseFloat(e.target.value);
-            this.updateDelay();
-        });
+        if (this.elements.delayTime) {
+            this.elements.delayTime.addEventListener('input', (e) => {
+                this.effects.delay.time = parseFloat(e.target.value);
+                this.updateDelay();
+            });
+        }
 
-        this.elements.delayFeedback.addEventListener('input', (e) => {
-            this.effects.delay.feedback = parseFloat(e.target.value);
-            this.updateDelay();
-        });
+        if (this.elements.delayFeedback) {
+            this.elements.delayFeedback.addEventListener('input', (e) => {
+                this.effects.delay.feedback = parseFloat(e.target.value);
+                this.updateDelay();
+            });
+        }
 
-        this.elements.distortionDrive.addEventListener('input', (e) => {
-            this.effects.distortion.drive = parseFloat(e.target.value);
-            this.updateDistortion();
-        });
+        if (this.elements.distortionDrive) {
+            this.elements.distortionDrive.addEventListener('input', (e) => {
+                this.effects.distortion.drive = parseFloat(e.target.value);
+                this.updateDistortion();
+            });
+        }
 
-        this.elements.phaserRate.addEventListener('input', (e) => {
-            this.effects.phaser.rate = parseFloat(e.target.value);
-            this.updatePhaser();
-        });
+        if (this.elements.phaserRate) {
+            this.elements.phaserRate.addEventListener('input', (e) => {
+                this.effects.phaser.rate = parseFloat(e.target.value);
+                this.updatePhaser();
+            });
+        }
 
         // Waveform interaction
-        this.elements.mainWaveform.addEventListener('click', (e) => this.scrubToPosition(e));
+        if (this.elements.mainWaveform) {
+            this.elements.mainWaveform.addEventListener('click', (e) => this.scrubToPosition(e));
+        }
 
         // BPM detection
         this.detectBPM();
